@@ -33,8 +33,8 @@ export function checkSupabaseConfig(
   const rawServiceKey = env.SUPABASE_SERVICE_ROLE_KEY;
   const hasServiceRoleKey = Boolean(
     rawServiceKey &&
-      rawServiceKey.trim().length > 0 &&
-      rawServiceKey !== "your-supabase-service-role-key"
+    rawServiceKey.trim().length > 0 &&
+    rawServiceKey !== "your-supabase-service-role-key"
   );
 
   if (!clientCheck.success || !clientCheck.data) {
