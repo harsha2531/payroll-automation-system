@@ -24,8 +24,6 @@ export default defineConfig({
         "src/repositories/**/*.ts",
       ],
       exclude: [
-        "src/lib/supabase/**",
-        "src/lib/env/server.ts",
         "src/**/*.d.ts",
         "src/tests/**",
       ],

@@ -9,6 +9,13 @@ import {
 let cachedServerEnv: ServerEnv | null = null;
 
 /**
+ * Resets the cached server environment variables (primarily for testing).
+ */
+export function resetServerEnvCache(): void {
+  cachedServerEnv = null;
+}
+
+/**
  * Access validated server-only environment variables.
  *
  * Rules:

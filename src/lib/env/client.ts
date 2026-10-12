@@ -3,6 +3,13 @@ import { clientEnvSchema, formatEnvIssues, type ClientEnv } from "./schema";
 let cachedClientEnv: ClientEnv | null = null;
 
 /**
+ * Resets the cached client environment variables (primarily for testing).
+ */
+export function resetClientEnvCache(): void {
+  cachedClientEnv = null;
+}
+
+/**
  * Access browser-safe environment variables.
  * Safe to import in both Client and Server Components.
  */
