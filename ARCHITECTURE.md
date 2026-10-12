@@ -72,3 +72,19 @@ When implementing new features (e.g., employee management, payroll processing):
 2. Encapsulate feature-specific UI, hooks, and local helpers inside the feature folder.
 3. Place backend business logic into `src/services/` and database persistence into `src/repositories/`.
 4. Define domain entity types in `src/types/` or `src/features/<feature-name>/types/`.
+
+---
+
+## 6. Environment Variable Configuration System
+
+All environment variables are managed and validated centrally in `src/lib/env/`:
+
+1. **Separation of Concerns**:
+   - **Browser-Safe (`src/lib/env/client.ts`)**: Only variables prefixed with `NEXT_PUBLIC_*` (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_APP_URL`). Safe to access in client and server code via `getClientEnv()`.
+   - **Server-Only (`src/lib/env/server.ts`)**: Secret credentials (`SUPABASE_SERVICE_ROLE_KEY`, `BREVO_API_KEY`, `BREVO_SENDER_EMAIL`, `BREVO_SENDER_NAME`, `NODE_ENV`). Guarded with `import "server-only";` and accessed via `getServerEnv()`.
+2. **Security & Leak Prevention**:
+   - Secrets are forbidden from using the `NEXT_PUBLIC_` prefix; schema validation rejects keywords like `SECRET`, `API_KEY`, and `SERVICE_ROLE` with public prefixes.
+   - Validation failure messages format issues explicitly without echoing actual received values to protect sensitive secrets from build/server logs.
+3. **Reference Template**:
+   - Detailed variable specifications and documentation are maintained in `.env.example`.
+
