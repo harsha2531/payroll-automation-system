@@ -11,5 +11,25 @@ export default defineConfig({
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
+    include: ["src/**/*.{test,spec}.{ts,tsx}"],
+    exclude: ["node_modules", ".next", "dist"],
+    coverage: {
+      provider: "v8",
+      reportsDirectory: "./coverage",
+      reporter: ["text", "json", "html", "lcov"],
+      include: [
+        "src/lib/**/*.ts",
+        "src/features/**/*.ts",
+        "src/services/**/*.ts",
+        "src/repositories/**/*.ts",
+      ],
+      exclude: [
+        "src/lib/supabase/**",
+        "src/lib/env/server.ts",
+        "src/**/*.d.ts",
+        "src/tests/**",
+      ],
+    },
   },
 });
+
