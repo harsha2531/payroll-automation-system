@@ -212,6 +212,59 @@ WHERE email = 'admin@yourcompany.com';
 
 ---
 
+## Phase 3.1: Database Schema & Migrations
+
+Phase 3.1 establishes the core PostgreSQL schema and migrations for automated payroll execution, payslip generation, and transactional email distribution.
+
+### Schema Architecture & Entities
+
+```text
+supabase/migrations/
+├── 20261013000000_create_profiles_table.sql   # User Profiles & Authorization (Phase 2.3)
+└── 20261013010000_create_payroll_schema.sql    # Core Payroll Domain Schema (Phase 3.1)
+```
+
+1. **`public.employees`**:
+   - Master employee registry with unique `employee_number`, full name, email, designation, department, and employment lifecycle status (`active`, `inactive`, `terminated`, `on_leave`).
+   - Minimizes collected personal data while providing essential payroll contact fields.
+
+2. **`public.payroll_runs`**:
+   - Periodic execution runs with `year`, `month`, and `sequence_number`.
+   - **Correction & Rerun Strategy**: Unique constraint `uq_payroll_runs_period_sequence (year, month, sequence_number)` permits corrections, bonuses, or supplementary payroll runs for a period without overwriting history.
+   - Lifecycle status enforced: `draft`, `processing`, `calculated`, `approved`, `completed`, `failed`, `cancelled`.
+   - Audit tracking with `created_by`, `approved_by`, and summary aggregates (`total_gross_pay`, `total_net_pay`).
+
+3. **`public.payroll_items`**:
+   - Itemized line items per employee per run.
+   - **Historical Snapshot**: Freezes `employee_number_snapshot`, `employee_name_snapshot`, `employee_email_snapshot`, and designations at the moment of run calculation, ensuring future employee profile edits do not alter past payslips.
+   - **Monetary Precision**: All currency amounts stored using exact PostgreSQL `numeric(12, 2)` (strictly non-floating point) with non-negative constraints.
+   - **Variable Pay**: Native support for custom additions via `variable_pay_label` (e.g., "Over Time", "Bonus", "Commission") and `variable_pay_amount`.
+   - **Source vs Calculated Tracking**: `earnings_breakdown`, `deductions_breakdown`, and `calculation_metadata` record raw Excel inputs separately from system calculation rules.
+   - **Duplicate Prevention**: Unique constraint `uq_payroll_items_run_employee (payroll_run_id, employee_id)` prevents accidental multiple entries for the same employee within a single run.
+   - **Audit Preservation**: Enforces `ON DELETE RESTRICT` on foreign keys to `payroll_runs` and `employees`, preventing accidental deletion of historical payroll records.
+
+4. **`public.payslip_documents`**:
+   - PDF metadata repository linked 1-to-1 with `payroll_items`.
+   - **Private Storage**: Stores `storage_bucket` (`payslips`) and private `storage_path` (e.g., `runs/<run_id>/<employee_id>.pdf`). Does **not** store permanent public URLs. Signed URLs are generated on demand.
+
+5. **`public.email_deliveries`**:
+   - Transactional email dispatch tracking with recipient, provider message ID, retry attempts, and safe error details.
+   - **Idempotency**: Unique constraint on `idempotency_key` ensures duplicate-send protection across worker restarts or network retries.
+
+6. **`public.processing_jobs`**:
+   - Database-backed task queue for asynchronous payroll calculation, PDF rendering, and bulk email distribution.
+   - **Atomic Worker Claiming**: Supports lease locks via `claimed_by`, `claimed_at`, and `locked_until` (enabling automatic recovery of abandoned/stale jobs if workers crash).
+   - **High-Performance Partial Indexes**: Optimized index on `(status, available_at) WHERE status in ('queued', 'failed')`.
+
+### Row Level Security (RLS) Model
+
+- **Administrative Control**: Administrators (`role = 'admin'` in `profiles`) have full access across all payroll tables.
+- **Employee Self-Service**: Authenticated employees can only SELECT their own employee record, payroll items, and payslip documents matched against their authenticated profile email.
+- **Queue Protection**: `processing_jobs` is strictly restricted to administrators and backend workers.
+- **Service Role**: Backend processes using `service_role` have full unconstrained access.
+
+---
+
 ## Testing & Quality Assurance
 
 | Command | Purpose |
