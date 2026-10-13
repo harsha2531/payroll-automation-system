@@ -12,3 +12,4 @@ import "server-only";
  */
 
 export * from "./profile.repository";
+export * from "./payroll.repository";
