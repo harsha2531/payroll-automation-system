@@ -325,7 +325,7 @@ describe("Auth Profile Mapping", () => {
     expect(profile.displayName).toBe("Finance.lead");
   });
 
-  it("extracts role from app_metadata", () => {
+  it("extracts role from app_metadata when valid", () => {
     const user: User = {
       ...baseUser,
       app_metadata: { role: "admin" },
@@ -335,14 +335,25 @@ describe("Auth Profile Mapping", () => {
     expect(profile.role).toBe("admin");
   });
 
-  it("extracts role from user_metadata if app_metadata role is absent", () => {
+  it("strictly ignores role in user_metadata to prevent self-promotion", () => {
     const user: User = {
       ...baseUser,
-      user_metadata: { role: "manager" },
+      user_metadata: { role: "admin" }, // Attacker trying to self-promote via metadata
     };
 
     const profile = mapUserProfile(user);
-    expect(profile.role).toBe("manager");
+    expect(profile.role).toBe("employee"); // Must default safely to employee
+  });
+
+  it("resolves role and full name from trusted database profile record", () => {
+    const user: User = { ...baseUser };
+    const profile = mapUserProfile(user, {
+      role: "admin",
+      fullName: "Super Admin",
+    });
+
+    expect(profile.role).toBe("admin");
+    expect(profile.displayName).toBe("Super Admin");
   });
 
   it("defaults role to employee when no role specified", () => {
@@ -365,5 +376,31 @@ describe("Auth Profile Mapping", () => {
     const profile = mapUserProfile(user);
     expect(profile.displayName).toBe("User");
     expect(profile.email).toBe("");
+  });
+});
+
+import { isAdmin, isValidRole, assertAdmin } from "@/features/auth/roles";
+
+describe("Role Authorization Utility (src/features/auth/roles.ts)", () => {
+  it("isAdmin returns true for admin and false otherwise", () => {
+    expect(isAdmin("admin")).toBe(true);
+    expect(isAdmin("employee")).toBe(false);
+    expect(isAdmin("")).toBe(false);
+    expect(isAdmin(null)).toBe(false);
+    expect(isAdmin(undefined)).toBe(false);
+  });
+
+  it("isValidRole recognizes valid roles", () => {
+    expect(isValidRole("admin")).toBe(true);
+    expect(isValidRole("employee")).toBe(true);
+    expect(isValidRole("superadmin")).toBe(false);
+    expect(isValidRole("")).toBe(false);
+    expect(isValidRole(123)).toBe(false);
+  });
+
+  it("assertAdmin throws for non-admin and passes for admin", () => {
+    expect(() => assertAdmin("admin")).not.toThrow();
+    expect(() => assertAdmin("employee")).toThrow(/Administrator privileges required/);
+    expect(() => assertAdmin(null)).toThrow(/Administrator privileges required/);
   });
 });

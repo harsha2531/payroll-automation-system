@@ -10,3 +10,5 @@ import "server-only";
  * - Must never be imported into Client Components.
  * - Imports "server-only" to guarantee compile-time isolation.
  */
+
+export * from "./profile.repository";

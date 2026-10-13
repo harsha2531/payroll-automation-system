@@ -11,3 +11,5 @@ import "server-only";
  * - Must never be imported directly into Client Components.
  * - Imports "server-only" to guarantee compile-time isolation.
  */
+
+export * from "./auth.service";

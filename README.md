@@ -150,6 +150,68 @@ Ensure your Supabase project email templates use the correct confirmation link:
 
 ---
 
+## Phase 2.3: Authorization, Security & Quality Gate
+
+Phase 2.3 hardens application security by establishing a strict Role-Based Access Control (RBAC) model, database-backed user profiles, and Row Level Security (RLS).
+
+### 1. Minimal Role Model
+
+The application defines a minimal, explicit two-role authorization system:
+- **`admin`**: System administrator with complete operational and administrative privileges.
+- **`employee`**: Standard default user role assigned automatically to newly registered accounts.
+
+### 2. Trusted Server-Controlled Profiles
+
+- **Table**: `public.profiles` (`id`, `email`, `full_name`, `role`, `avatar_url`, `created_at`, `updated_at`).
+- **Location**: `supabase/migrations/20261013000000_create_profiles_table.sql`.
+- **Automatic Provisioning Trigger**: `handle_new_user()` executes on `auth.users` insert with `SECURITY DEFINER`, guaranteeing that new signups *always* default to role `'employee'`. User-supplied signup metadata cannot grant admin status.
+- **Anti-Self-Promotion Trigger**: `prevent_role_self_promotion()` blocks any client from modifying the `role` column via `UPDATE`. Only `service_role` or authorized administrators can update roles.
+- **Repository Isolation**: `ProfileRepository.updateProfile()` safely omits the `role` column, preventing client profile update payloads from escalating privileges.
+
+### 3. Row Level Security (RLS) Policies
+
+Row Level Security is enabled on `public.profiles` with least-privilege policies:
+- `profiles_select_own`: Users can view their own profile (`auth.uid() = id`).
+- `profiles_select_admin`: Administrators can query all profiles.
+- `profiles_update_own`: Users can update non-privileged fields on their own profile (`auth.uid() = id`).
+- `profiles_update_admin`: Administrators can update profiles.
+- `profiles_service_role_all`: Server service-role possesses full unconstrained access.
+
+### 4. Server-Enforced Admin Authorization
+
+- **Server Guard (`AuthService.requireAdmin`)**: Enforces authentication and verifies `role === 'admin'` against the trusted database profile before rendering `/protected`.
+- **403 Access Denied (`/unauthorized`)**: Authenticated non-admin users attempting to access the dashboard or admin resources are redirected to `/unauthorized` on the server.
+- **Server Actions Guard (`assignUserRoleAction`)**: Verifies caller is an active administrator before permitting role updates.
+
+### 5. Secure Initial Administrator Provisioning
+
+To prevent unauthorized privilege escalation, there is **no public API or self-assignment endpoint** for the `admin` role. Initial administrator accounts must be provisioned through secure backend mechanisms:
+
+#### Option A: Server-Side CLI Script (Recommended)
+Infrastructure engineers can provision the initial admin directly on the server runtime:
+
+```bash
+# Provision by email
+npx tsx scripts/provision-admin.ts admin@yourcompany.com
+```
+
+This script:
+1. Validates `SUPABASE_SERVICE_ROLE_KEY` is present.
+2. Locates the registered user in Supabase Auth.
+3. Updates `public.profiles.role` to `'admin'`.
+4. Synchronizes `auth.users.raw_app_meta_data.role` to `'admin'`.
+
+#### Option B: Supabase Dashboard SQL Editor
+Run the following SQL snippet directly in your Supabase SQL Editor:
+
+```sql
+UPDATE public.profiles
+SET role = 'admin', updated_at = now()
+WHERE email = 'admin@yourcompany.com';
+```
+
+---
+
 ## Testing & Quality Assurance
 
 | Command | Purpose |

@@ -1,8 +1,6 @@
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Suspense } from "react";
-import { createClient } from "@/lib/supabase/server";
-import { mapUserProfile } from "@/features/auth/profile";
+import { AuthService } from "@/services/auth.service";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,20 +12,12 @@ import {
   ShieldCheck,
   User as UserIcon,
   Calendar,
+  Lock,
 } from "lucide-react";
 
 async function ProtectedDashboardContent() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
-
-  if (error || !user) {
-    redirect("/auth/login");
-  }
-
-  const profile = mapUserProfile(user);
+  // Server-side authorization check: strictly enforces admin role
+  const { profile } = await AuthService.requireAdmin();
 
   const formattedCreatedAt = profile.createdAt
     ? new Date(profile.createdAt).toLocaleDateString(undefined, {
@@ -53,12 +43,13 @@ async function ProtectedDashboardContent() {
             <h1 className="text-3xl font-bold tracking-tight">
               Welcome back, {profile.displayName}
             </h1>
-            <Badge variant="secondary" className="capitalize">
+            <Badge variant="default" className="capitalize bg-emerald-600 hover:bg-emerald-700">
+              <Lock className="h-3 w-3 mr-1" />
               {profile.role}
             </Badge>
           </div>
           <p className="text-muted-foreground text-sm mt-1">
-            Payroll Automation System &bull; Secure authenticated dashboard
+            Payroll Automation System &bull; Secure Administrator Dashboard
           </p>
         </div>
 
@@ -73,13 +64,13 @@ async function ProtectedDashboardContent() {
         </div>
       </div>
 
-      {/* Session Status Banner */}
+      {/* Session & Authorization Status Banner */}
       <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-lg p-4 flex items-center gap-3 text-emerald-800 dark:text-emerald-200 text-sm">
         <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-600 dark:text-emerald-400" />
         <div>
-          <span className="font-semibold">Authenticated Session Verified</span>
+          <span className="font-semibold">Administrator Authorization Verified</span>
           <p className="text-xs text-emerald-700 dark:text-emerald-300 mt-0.5">
-            Your session cookies are validated server-side by Supabase SSR with encrypted cookie refresh.
+            Your identity and admin permissions are verified server-side against the trusted database profiles table with Row Level Security.
           </p>
         </div>
       </div>
@@ -91,10 +82,10 @@ async function ProtectedDashboardContent() {
           <CardHeader>
             <div className="flex items-center gap-2">
               <UserIcon className="h-5 w-5 text-primary" />
-              <CardTitle>User Profile</CardTitle>
+              <CardTitle>Administrator Profile</CardTitle>
             </div>
             <CardDescription>
-              Basic profile information retrieved from Supabase Auth
+              Verified credentials from trusted public.profiles database table
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -110,8 +101,8 @@ async function ProtectedDashboardContent() {
               <span className="font-medium text-foreground">{profile.email}</span>
             </div>
             <div className="flex items-center justify-between py-2 border-b text-sm">
-              <span className="text-muted-foreground">System Role</span>
-              <Badge variant="outline" className="capitalize">
+              <span className="text-muted-foreground">Authorization Role</span>
+              <Badge variant="outline" className="capitalize font-semibold text-emerald-600 dark:text-emerald-400 border-emerald-500">
                 {profile.role}
               </Badge>
             </div>
@@ -129,10 +120,10 @@ async function ProtectedDashboardContent() {
           <CardHeader>
             <div className="flex items-center gap-2">
               <ShieldCheck className="h-5 w-5 text-primary" />
-              <CardTitle>Security &amp; Activity</CardTitle>
+              <CardTitle>Security &amp; Privilege Guard</CardTitle>
             </div>
             <CardDescription>
-              Authentication status and session details
+              Session details and server-side privilege level
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -148,8 +139,8 @@ async function ProtectedDashboardContent() {
               <span className="font-medium text-foreground">{formattedLastSignIn}</span>
             </div>
             <div className="flex items-center justify-between py-2 border-b text-sm">
-              <span className="text-muted-foreground">Authentication Method</span>
-              <span className="font-medium text-foreground">Email &amp; Password (SSR)</span>
+              <span className="text-muted-foreground">Access Control</span>
+              <span className="font-medium text-foreground">Server-enforced RBAC + RLS</span>
             </div>
             <div className="pt-2 flex justify-between items-center text-sm">
               <span className="text-muted-foreground">Manage Credentials</span>
@@ -172,7 +163,7 @@ export default function ProtectedPage() {
     <Suspense
       fallback={
         <div className="flex-1 w-full flex items-center justify-center p-12 text-sm text-muted-foreground">
-          Loading protected session...
+          Verifying administrative permissions...
         </div>
       }
     >

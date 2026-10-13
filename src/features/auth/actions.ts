@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { getClientEnv } from "@/lib/env/client";
 import {
   validateLoginInput,
@@ -11,6 +11,9 @@ import {
 import { mapAuthError } from "./error-mapping";
 import { mapUserProfile, type UserProfile } from "./profile";
 import { redirect } from "next/navigation";
+import { AuthService } from "@/services/auth.service";
+import { ProfileRepository } from "@/repositories/profile.repository";
+import { isValidRole } from "./roles";
 
 export interface ActionResult<T = unknown> {
   success: boolean;
@@ -189,15 +192,100 @@ export async function logoutAction(): Promise<void> {
 }
 
 /**
- * Server action to fetch the current authenticated user's profile.
+ * Server action to fetch the current authenticated user's profile from trusted database table.
  */
 export async function getUserProfileAction(): Promise<UserProfile | null> {
-  const supabase = await createClient();
-  const { data, error } = await supabase.auth.getUser();
+  const { profile } = await AuthService.getCurrentUserWithProfile();
+  return profile;
+}
 
-  if (error || !data.user) {
-    return null;
+/**
+ * Server action to update the user's own profile (fullName, avatarUrl).
+ * Security: Strictly prevents self-promotion by ignoring/excluding any role input.
+ */
+export async function updateProfileAction(data: {
+  fullName?: string;
+  avatarUrl?: string;
+  role?: unknown; // Explicitly ignored to prevent self-promotion
+}): Promise<ActionResult<UserProfile>> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    return {
+      success: false,
+      error: "You must be signed in to update your profile.",
+    };
   }
 
-  return mapUserProfile(data.user);
+  // Security: only pass non-privileged fields
+  const updateResult = await ProfileRepository.updateProfile(supabase, user.id, {
+    fullName: data.fullName?.trim(),
+    avatarUrl: data.avatarUrl?.trim(),
+  });
+
+  if (!updateResult.success) {
+    return {
+      success: false,
+      error: updateResult.error,
+    };
+  }
+
+  const updatedProfile = mapUserProfile(user, updateResult.data);
+  return {
+    success: true,
+    data: updatedProfile,
+  };
+}
+
+/**
+ * Administrative server action to assign/change a user's role.
+ * Security: Strictly enforces that only authorized administrators can call this action.
+ */
+export async function assignUserRoleAction(data: {
+  targetUserId: string;
+  role: string;
+}): Promise<ActionResult> {
+  const { isAdmin: isCallerAdmin } = await AuthService.getCurrentUserWithProfile();
+
+  if (!isCallerAdmin) {
+    return {
+      success: false,
+      error: "Forbidden: Only administrators can modify user roles.",
+    };
+  }
+
+  if (!isValidRole(data.role)) {
+    return {
+      success: false,
+      error: "Invalid role specified. Role must be 'admin' or 'employee'.",
+    };
+  }
+
+  if (!data.targetUserId || typeof data.targetUserId !== "string") {
+    return {
+      success: false,
+      error: "Target user ID is required.",
+    };
+  }
+
+  // Perform role update using admin client
+  const adminClient = createAdminClient();
+  const result = await ProfileRepository.updateUserRole(
+    adminClient,
+    data.targetUserId,
+    data.role
+  );
+
+  if (!result.success) {
+    return {
+      success: false,
+      error: result.error,
+    };
+  }
+
+  return { success: true };
 }
