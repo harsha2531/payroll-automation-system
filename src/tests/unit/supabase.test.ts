@@ -355,5 +355,33 @@ describe("Phase 2.1: Supabase Setup & Integration", () => {
       expect(res.status).not.toBe(307);
       expect(res.headers.get("location")).toBeNull();
     });
+
+    it("redirects unauthenticated users attempting to access /protected to /auth/login", async () => {
+      const req = new NextRequest("http://localhost:3000/protected");
+      const res = await updateSession(req);
+
+      expect(res.status).toBe(307);
+      expect(res.headers.get("location")).toBe("http://localhost:3000/auth/login");
+    });
+
+    it("redirects authenticated users attempting to access /auth/login to /protected", async () => {
+      const { createServerClient: mockCreateServer } = await import("@supabase/ssr");
+      vi.mocked(mockCreateServer).mockReturnValueOnce({
+        type: "server",
+        url: mockValidEnv.NEXT_PUBLIC_SUPABASE_URL,
+        key: mockValidEnv.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+        options: {},
+        auth: {
+          getSession: vi.fn().mockResolvedValue({ data: { session: null }, error: null }),
+          getClaims: vi.fn().mockResolvedValue({ data: { claims: { sub: "user-123" } }, error: null }),
+        },
+      } as unknown as MockServerClient);
+
+      const req = new NextRequest("http://localhost:3000/auth/login");
+      const res = await updateSession(req);
+
+      expect(res.status).toBe(307);
+      expect(res.headers.get("location")).toBe("http://localhost:3000/protected");
+    });
   });
 });

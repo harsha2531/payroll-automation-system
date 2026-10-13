@@ -23,6 +23,14 @@ export default function Page() {
                 You&apos;ve successfully signed up. Please check your email to
                 confirm your account before signing in.
               </p>
+              <div className="mt-4 pt-4 border-t">
+                <a
+                  href="/auth/login"
+                  className="inline-flex items-center text-sm font-medium text-primary hover:underline"
+                >
+                  &larr; Back to sign in
+                </a>
+              </div>
             </CardContent>
           </Card>
         </div>

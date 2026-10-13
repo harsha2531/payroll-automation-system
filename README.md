@@ -100,6 +100,56 @@ Visit [http://localhost:3000](http://localhost:3000) to view the application she
 
 ---
 
+## Phase 2.2: Complete Authentication
+
+The application provides a comprehensive, production-ready authentication implementation built on Next.js App Router, Server Actions, and Supabase SSR (`@supabase/ssr`).
+
+### Features Implemented
+
+1. **Email & Password Authentication**:
+   - Login with email and password (`/auth/login`)
+   - Signup with full name, email, and password confirmation (`/auth/sign-up`)
+   - Logout via server action and client component with loading state
+2. **Password Recovery Flow**:
+   - Password reset request (`/auth/forgot-password`) with **anti-enumeration protection** (always reports generic success without leaking email existence)
+   - Password reset callback and OTP / PKCE exchange (`/auth/confirm`)
+   - Password update form (`/auth/update-password`)
+3. **Route Protection & Redirections**:
+   - Server-side authentication check on protected routes (`/protected`)
+   - Edge proxy / middleware automatically redirects unauthenticated users to `/auth/login`
+   - Authenticated users attempting to visit `/auth/login` or `/auth/sign-up` are automatically redirected to `/protected`
+4. **User Profile Mapping**:
+   - Pure profile extraction utility (`mapUserProfile`) extracting `displayName` (full_name, name, or first/last name with email fallback), system role, user ID, and timestamps
+   - Displayed in the authenticated `/protected` dashboard
+5. **Input Validation & Security**:
+   - Strict dual-layer validation (Zod schemas on server actions + client-side form feedback)
+   - Supabase Auth error mapping (`mapAuthError`) providing user-friendly error messages without revealing internal system details
+
+### Supabase Dashboard Configuration
+
+To enable email confirmations and password recovery flows in your Supabase project, configure the following settings in your [Supabase Dashboard](https://supabase.com/dashboard):
+
+#### 1. URL Configuration (Authentication > URL Configuration)
+- **Site URL**:
+  - Development: `http://localhost:3000`
+  - Production: `https://your-domain.com`
+- **Redirect URLs** (Add all of the following):
+  - `http://localhost:3000/auth/confirm`
+  - `http://localhost:3000/auth/confirm?next=/protected`
+  - `http://localhost:3000/auth/confirm?type=recovery&next=/auth/update-password`
+  - `http://localhost:3000/auth/update-password`
+  - `http://localhost:3000/protected`
+  - *(For production, replace `http://localhost:3000` with your production domain)*
+
+#### 2. Email Templates (Authentication > Email Templates)
+Ensure your Supabase project email templates use the correct confirmation link:
+- **Confirm signup**:
+  - Redirect link: `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email&next=/protected`
+- **Reset Password**:
+  - Redirect link: `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next=/auth/update-password`
+
+---
+
 ## Testing & Quality Assurance
 
 | Command | Purpose |

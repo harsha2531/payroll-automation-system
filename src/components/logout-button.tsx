@@ -1,17 +1,46 @@
 "use client";
 
-import { createClient } from "@/lib/supabase/client";
+import { useTransition } from "react";
 import { Button } from "@/components/ui/button";
-import { useRouter } from "next/navigation";
+import { logoutAction } from "@/features/auth/actions";
+import { Loader2, LogOut } from "lucide-react";
 
-export function LogoutButton() {
-  const router = useRouter();
+interface LogoutButtonProps {
+  variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link";
+  size?: "default" | "sm" | "lg" | "icon";
+  className?: string;
+  showIcon?: boolean;
+}
 
-  const logout = async () => {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push("/auth/login");
+export function LogoutButton({
+  variant = "outline",
+  size = "sm",
+  className,
+  showIcon = true,
+}: LogoutButtonProps) {
+  const [isPending, startTransition] = useTransition();
+
+  const handleLogout = () => {
+    startTransition(async () => {
+      await logoutAction();
+    });
   };
 
-  return <Button onClick={logout}>Logout</Button>;
+  return (
+    <Button
+      variant={variant}
+      size={size}
+      className={className}
+      onClick={handleLogout}
+      disabled={isPending}
+    >
+      {isPending ? (
+        <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
+      ) : showIcon ? (
+        <LogOut className="h-4 w-4 mr-1.5" />
+      ) : null}
+      {isPending ? "Logging out..." : "Logout"}
+    </Button>
+  );
 }
+

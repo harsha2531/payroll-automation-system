@@ -7,24 +7,38 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const token_hash = searchParams.get("token_hash");
   const type = searchParams.get("type") as EmailOtpType | null;
-  const next = searchParams.get("next") ?? "/";
+  const code = searchParams.get("code");
+  const next =
+    searchParams.get("next") ??
+    (type === "recovery" ? "/auth/update-password" : "/protected");
 
+  const supabase = await createClient();
+
+  // 1. Handle Token Hash Verification (Email OTP / Link)
   if (token_hash && type) {
-    const supabase = await createClient();
-
     const { error } = await supabase.auth.verifyOtp({
       type,
       token_hash,
     });
+
     if (!error) {
-      // redirect user to specified redirect URL or root of app
       redirect(next);
     } else {
-      // redirect the user to an error page with some instructions
-      redirect(`/auth/error?error=${error?.message}`);
+      redirect(`/auth/error?error=${encodeURIComponent(error.message)}`);
     }
   }
 
-  // redirect the user to an error page with some instructions
-  redirect(`/auth/error?error=No token hash or type`);
+  // 2. Handle PKCE Code Exchange
+  if (code) {
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+
+    if (!error) {
+      redirect(next);
+    } else {
+      redirect(`/auth/error?error=${encodeURIComponent(error.message)}`);
+    }
+  }
+
+  // Missing authentication token or code
+  redirect("/auth/error?error=Invalid%20or%20missing%20confirmation%20token");
 }
