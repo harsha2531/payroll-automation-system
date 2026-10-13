@@ -257,7 +257,7 @@ export const PayrollRunRepository = {
     updates: Partial<PayrollRunUpdate>
   ): Promise<Result<PayrollRun>> {
     try {
-      const payload: PayrollRunUpdate = { status, ...updates } as any;
+      const payload: PayrollRunUpdate = { status, ...updates } as PayrollRunUpdate;
       const { data, error } = await supabase
         .from("payroll_runs")
         .update(payload)
@@ -442,8 +442,8 @@ export const PayslipDocumentRepository = {
     try {
       const payload: PayslipDocumentUpdate = {
         status,
-        ...(updates as any),
-      } as any;
+        ...updates,
+      } as PayslipDocumentUpdate;
       const { data, error } = await supabase
         .from("payslip_documents")
         .update(payload)
@@ -517,8 +517,8 @@ export const EmailDeliveryRepository = {
     try {
       const payload: EmailDeliveryUpdate = {
         delivery_status: status,
-        ...(updates as any),
-      } as any;
+        ...updates,
+      } as EmailDeliveryUpdate;
       const { data, error } = await supabase
         .from("email_deliveries")
         .update(payload)
