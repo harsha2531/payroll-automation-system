@@ -57,6 +57,12 @@ export const serverEnvSchema = z
     NODE_ENV: z
       .enum(["development", "production", "test"])
       .default("development"),
+    // Bootstrap secret for one‑time admin creation (optional; empty in prod)
+    BOOTSTRAP_ADMIN_SECRET: z
+      .string()
+      .min(1, "BOOTSTRAP_ADMIN_SECRET cannot be empty")
+      .optional()
+      .default(""),
   })
   // Merge client schema into server schema so server has access to all env vars
   .merge(clientEnvSchema);

@@ -1,5 +1,5 @@
 import { EmployeeRepository } from '@/repositories';
-import { auth } from '@/lib/auth';
+import { auth, supabaseClient } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
@@ -14,7 +14,7 @@ export default async function EmployeesPage({ searchParams }: { searchParams: Re
   const search = (searchParams.search as string) ?? undefined;
 
   const result = await EmployeeRepository.listEmployees(
-    auth.supabaseClient,
+    supabaseClient,
     { page, pageSize, status: status as any, search }
   );
 
