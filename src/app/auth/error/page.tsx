@@ -2,35 +2,14 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { AlertTriangle, ArrowLeft } from "lucide-react";
-import { Suspense } from "react";
 
-async function ErrorContent({
+export default async function AuthErrorPage({
   searchParams,
 }: {
   searchParams: Promise<{ error?: string }>;
 }) {
   const params = await searchParams;
 
-  return (
-    <div className="space-y-3">
-      {params?.error ? (
-        <div className="rounded-md bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive font-mono">
-          {params.error}
-        </div>
-      ) : (
-        <p className="text-sm text-muted-foreground">
-          An unspecified authentication error occurred. Please try again or return to the sign-in page.
-        </p>
-      )}
-    </div>
-  );
-}
-
-export default function AuthErrorPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ error?: string }>;
-}) {
   return (
     <div className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">
       <div className="w-full max-w-sm">
@@ -45,9 +24,17 @@ export default function AuthErrorPage({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Suspense fallback={<p className="text-sm text-muted-foreground">Loading error details...</p>}>
-              <ErrorContent searchParams={searchParams} />
-            </Suspense>
+            <div className="space-y-3">
+              {params?.error ? (
+                <div className="rounded-md bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive font-mono">
+                  {params.error}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  An unspecified authentication error occurred. Please try again or return to the sign-in page.
+                </p>
+              )}
+            </div>
           </CardContent>
           <CardFooter className="flex flex-col gap-2">
             <Button asChild className="w-full">

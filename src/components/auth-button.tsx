@@ -1,21 +1,27 @@
 import Link from "next/link";
 import { Button } from "./ui/button";
-import { createClient } from "@/lib/supabase/server";
+import { Badge } from "./ui/badge";
 import { LogoutButton } from "./logout-button";
+import { AuthService } from "@/services/auth.service";
 
 export async function AuthButton() {
-  const supabase = await createClient();
+  const { user, profile } = await AuthService.getCurrentUserWithProfile();
 
-  // You can also use getUser() which will be slower.
-  const { data } = await supabase.auth.getClaims();
-
-  const user = data?.claims;
-
-  return user ? (
-    <div className="flex items-center gap-4">
+  return user && profile ? (
+    <div className="flex items-center gap-3">
       <span className="text-sm text-muted-foreground hidden sm:inline">
-        Signed in as <strong className="text-foreground font-medium">{user.email}</strong>
+        Signed in as <strong className="text-foreground font-medium">{profile.email}</strong>
       </span>
+      <Badge
+        variant="outline"
+        className={
+          profile.role === "admin"
+            ? "capitalize text-xs font-semibold text-emerald-600 dark:text-emerald-400 border-emerald-500"
+            : "capitalize text-xs font-medium text-muted-foreground"
+        }
+      >
+        {profile.role}
+      </Badge>
       <LogoutButton />
     </div>
   ) : (

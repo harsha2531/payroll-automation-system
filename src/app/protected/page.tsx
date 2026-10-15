@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Suspense } from "react";
 import { AuthService } from "@/services/auth.service";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -15,8 +14,8 @@ import {
   Lock,
 } from "lucide-react";
 
-async function ProtectedDashboardContent() {
-  // Server-side authorization check: strictly enforces admin role
+export default async function ProtectedPage() {
+  // Server-side authorization check: strictly enforces admin role outside of Suspense
   const { profile } = await AuthService.requireAdmin();
 
   const formattedCreatedAt = profile.createdAt
@@ -155,19 +154,5 @@ async function ProtectedDashboardContent() {
         </Card>
       </div>
     </div>
-  );
-}
-
-export default function ProtectedPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="flex-1 w-full flex items-center justify-center p-12 text-sm text-muted-foreground">
-          Verifying administrative permissions...
-        </div>
-      }
-    >
-      <ProtectedDashboardContent />
-    </Suspense>
   );
 }

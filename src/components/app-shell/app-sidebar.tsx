@@ -6,6 +6,7 @@ import {
   Users,
   FileSpreadsheet,
   Settings,
+  ShieldAlert,
 } from "lucide-react";
 
 export interface NavItem {
@@ -14,9 +15,10 @@ export interface NavItem {
   icon: React.ComponentType<{ className?: string }>;
   disabled?: boolean;
   badge?: string;
+  adminOnly?: boolean;
 }
 
-const navItems: NavItem[] = [
+const baseNavItems: NavItem[] = [
   {
     title: "Overview",
     href: "/",
@@ -32,10 +34,9 @@ const navItems: NavItem[] = [
   },
   {
     title: "Employees",
-    href: "#",
+    href: "/employees",
     icon: Users,
-    disabled: true,
-    badge: "Upcoming",
+    disabled: false,
   },
   {
     title: "Reports & Pay Slips",
@@ -53,14 +54,32 @@ const navItems: NavItem[] = [
   },
 ];
 
-export function AppSidebar() {
+const adminNavItems: NavItem[] = [
+  {
+    title: "Admin Dashboard",
+    href: "/protected",
+    icon: ShieldAlert,
+    disabled: false,
+    adminOnly: true,
+  },
+];
+
+export interface AppSidebarProps {
+  isAdmin?: boolean;
+}
+
+export function AppSidebar({ isAdmin = false }: AppSidebarProps = {}) {
+  const itemsToRender = isAdmin
+    ? [...baseNavItems, ...adminNavItems]
+    : baseNavItems;
+
   return (
     <aside className="hidden md:flex flex-col w-64 border-r border-border bg-card p-4 transition-colors">
       <div className="mb-4 px-2 py-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
         Navigation Shell
       </div>
       <nav className="flex-1 space-y-1.5" aria-label="Main Navigation">
-        {navItems.map((item) => {
+        {itemsToRender.map((item) => {
           const Icon = item.icon;
           if (item.disabled) {
             return (

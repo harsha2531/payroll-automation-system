@@ -1,28 +1,40 @@
-import { EmployeeRepository } from '@/repositories';
-import { auth, supabaseClient } from '@/lib/auth';
-import { redirect } from 'next/navigation';
+import { EmployeeRepository } from "@/repositories";
+import { createClient } from "@/lib/supabase/server";
+import { AuthService } from "@/services/auth.service";
+import { redirect } from "next/navigation";
+import Link from "next/link";
+import type { Employee, EmployeeStatus } from "@/types/payroll";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
-export default async function EmployeesPage({ searchParams }: { searchParams: Record<string, string | string[]> }) {
-  const session = await auth();
-  if (!session) redirect('/auth/login');
+interface EmployeesPageProps {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
 
-  const page = Number(searchParams.page) || 1;
-  const pageSize = Number(searchParams.pageSize) || 20;
-  const status = (searchParams.status as string) ?? undefined;
-  const search = (searchParams.search as string) ?? undefined;
+export default async function EmployeesPage({ searchParams }: EmployeesPageProps) {
+  const { user } = await AuthService.getCurrentUserWithProfile();
+  if (!user) {
+    redirect("/auth/login");
+  }
 
+  const params = await searchParams;
+  const page = Number(params?.page) || 1;
+  const pageSize = Number(params?.pageSize) || 20;
+  const statusParam = typeof params?.status === "string" ? params.status : undefined;
+  const status = statusParam as EmployeeStatus | undefined;
+  const search = typeof params?.search === "string" ? params.search : undefined;
+
+  const supabase = await createClient();
   const result = await EmployeeRepository.listEmployees(
-    supabaseClient,
-    { page, pageSize, status: status as any, search }
+    supabase as never,
+    { page, pageSize, status, search }
   );
 
-  if (result.isErr) {
+  if (!result.success) {
     return <div className="p-4 text-red-600">Failed to load employees.</div>;
   }
 
-  const { items, totalPages } = result.value;
+  const { items, totalPages } = result.data;
 
   return (
     <section className="p-4">
@@ -33,23 +45,23 @@ export default async function EmployeesPage({ searchParams }: { searchParams: Re
             type="text"
             name="search"
             placeholder="Search…"
-            defaultValue={search ?? ''}
+            defaultValue={search ?? ""}
             className="border rounded px-2 py-1"
           />
           <button type="submit" className="bg-blue-600 text-white rounded px-3 py-1">
             Search
           </button>
         </form>
-        <a href="/employees/add" className="ml-auto bg-green-600 text-white rounded px-3 py-1">
+        <Link href="/employees/add" className="ml-auto bg-green-600 text-white rounded px-3 py-1">
           Add Employee
-        </a>
+        </Link>
       </div>
       {items.length === 0 ? (
         <p>No employees found.</p>
       ) : (
         <table className="w-full border-collapse">
           <thead>
-            <tr className="bg-gray-200">
+            <tr className="bg-muted">
               <th className="border p-2">Number</th>
               <th className="border p-2">Name</th>
               <th className="border p-2">Email</th>
@@ -59,17 +71,17 @@ export default async function EmployeesPage({ searchParams }: { searchParams: Re
             </tr>
           </thead>
           <tbody>
-            {items.map((emp) => (
-              <tr key={emp.id} className={emp.status === 'inactive' ? 'opacity-50' : ''}>
+            {items.map((emp: Employee) => (
+              <tr key={emp.id} className={emp.status === "inactive" ? "opacity-50" : ""}>
                 <td className="border p-2">{emp.employeeNumber}</td>
                 <td className="border p-2">{emp.fullName}</td>
                 <td className="border p-2">{emp.email}</td>
-                <td className="border p-2">{emp.designation ?? ''}</td>
+                <td className="border p-2">{emp.designation ?? ""}</td>
                 <td className="border p-2 capitalize">{emp.status}</td>
                 <td className="border p-2">
-                  <a href={`/employees/edit/${emp.id}`} className="text-blue-600 underline">
+                  <Link href={`/employees/edit/${emp.id}`} className="text-blue-600 underline">
                     Edit
-                  </a>
+                  </Link>
                 </td>
               </tr>
             ))}
@@ -78,13 +90,13 @@ export default async function EmployeesPage({ searchParams }: { searchParams: Re
       )}
       <div className="flex justify-center gap-2 mt-4">
         {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-          <a
+          <Link
             key={p}
-            href={`?page=${p}&pageSize=${pageSize}${search ? `&search=${search}` : ''}${status ? `&status=${status}` : ''}`}
-            className={`px-3 py-1 border rounded ${p === page ? 'bg-blue-600 text-white' : ''}`}
+            href={`?page=${p}&pageSize=${pageSize}${search ? `&search=${encodeURIComponent(search)}` : ""}${status ? `&status=${encodeURIComponent(status)}` : ""}`}
+            className={`px-3 py-1 border rounded ${p === page ? "bg-blue-600 text-white" : ""}`}
           >
             {p}
-          </a>
+          </Link>
         ))}
       </div>
     </section>

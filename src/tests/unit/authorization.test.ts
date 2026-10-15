@@ -7,6 +7,10 @@ import {
 } from "@/features/auth/actions";
 import fs from "fs";
 import path from "path";
+import React from "react";
+import { render, screen } from "@testing-library/react";
+import { mapUserProfile } from "@/features/auth/profile";
+import { AppSidebar } from "@/components/app-shell/app-sidebar";
 
 // Mock next/navigation
 const mockRedirect = vi.fn((url: string) => {
@@ -378,6 +382,58 @@ describe("Phase 2.3: Authorization & Security Guard", () => {
       // Verify triggers
       expect(sql).toContain("prevent_role_self_promotion");
       expect(sql).toContain("handle_new_user");
+    });
+  });
+
+  describe("4. Admin Role Retrieval, Dashboard & Navigation Enforcement", () => {
+    it("mapUserProfile resolves admin role from trusted DB profile over metadata", () => {
+      const mockUser = {
+        id: "usr_admin_1",
+        email: "admin@company.com",
+        user_metadata: { role: "employee" }, // Attempted metadata override
+        app_metadata: { role: "employee" },
+        created_at: "2026-01-01T00:00:00Z",
+      };
+
+      const dbProfile = {
+        id: "usr_admin_1",
+        email: "admin@company.com",
+        fullName: "Verified Administrator",
+        role: "admin" as const,
+        avatarUrl: null,
+        createdAt: "2026-01-01T00:00:00Z",
+        updatedAt: "2026-01-01T00:00:00Z",
+      };
+
+      const profile = mapUserProfile(mockUser as never, dbProfile);
+      expect(profile.role).toBe("admin");
+      expect(profile.displayName).toBe("Verified Administrator");
+    });
+
+    it("mapUserProfile defaults safely to employee when DB profile role is employee or absent", () => {
+      const mockUser = {
+        id: "usr_emp_1",
+        email: "emp@company.com",
+        user_metadata: { role: "admin" }, // Client tries to spoof admin in user_metadata
+        app_metadata: {},
+        created_at: "2026-01-01T00:00:00Z",
+      };
+
+      const profile = mapUserProfile(mockUser as never, null);
+      expect(profile.role).toBe("employee");
+    });
+
+    it("AppSidebar renders Admin Dashboard link only when user is admin", () => {
+      const SidebarComponent = AppSidebar as React.ComponentType<{ isAdmin?: boolean }>;
+      // 1. As regular employee / non-admin
+      const { unmount } = render(React.createElement(SidebarComponent, { isAdmin: false }));
+      expect(screen.queryByText(/admin dashboard/i)).not.toBeInTheDocument();
+      unmount();
+
+      // 2. As authorized administrator
+      render(React.createElement(SidebarComponent, { isAdmin: true }));
+      expect(screen.getByText(/admin dashboard/i)).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: /admin dashboard/i })).toHaveAttribute("href", "/protected");
     });
   });
 });
