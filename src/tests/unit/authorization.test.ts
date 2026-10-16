@@ -40,8 +40,15 @@ const mockSupabase = {
   from: mockFrom,
 };
 
+const mockAdminUpdateUserById = vi.fn().mockResolvedValue({ data: {}, error: null });
+
 const mockAdminSupabase = {
   from: mockFrom,
+  auth: {
+    admin: {
+      updateUserById: mockAdminUpdateUserById,
+    },
+  },
 };
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -353,6 +360,103 @@ describe("Phase 2.3: Authorization & Security Guard", () => {
       });
 
       expect(result.success).toBe(true);
+      expect(mockAdminUpdateUserById).toHaveBeenCalledWith("target_user", {
+        app_metadata: { role: "admin" },
+      });
+    });
+
+    it("assignUserRoleAction returns error if target user ID is invalid or missing", async () => {
+      // Mock caller as admin
+      mockGetUser.mockResolvedValueOnce({
+        data: {
+          user: {
+            id: "admin_user",
+            email: "admin@company.com",
+            user_metadata: {},
+            created_at: "2026-01-01T00:00:00Z",
+          },
+        },
+        error: null,
+      });
+
+      mockFrom.mockReturnValueOnce({
+        select: vi.fn().mockReturnValueOnce({
+          eq: vi.fn().mockReturnValueOnce({
+            maybeSingle: vi.fn().mockResolvedValueOnce({
+              data: {
+                id: "admin_user",
+                email: "admin@company.com",
+                full_name: "Admin",
+                role: "admin",
+                avatar_url: null,
+                created_at: "2026-01-01T00:00:00Z",
+                updated_at: "2026-01-01T00:00:00Z",
+              },
+              error: null,
+            }),
+          }),
+        }),
+      });
+
+      const result = await assignUserRoleAction({
+        targetUserId: "",
+        role: "admin",
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("Target user ID is required");
+    });
+
+    it("ProfileRepository.updateUserRole returns safe error when profile is missing", async () => {
+      mockFrom.mockReturnValueOnce({
+        update: vi.fn().mockReturnValueOnce({
+          eq: vi.fn().mockReturnValueOnce({
+            select: vi.fn().mockReturnValueOnce({
+              single: vi.fn().mockResolvedValueOnce({
+                data: null,
+                error: { code: "PGRST116", message: "JSON object requested, 0 rows returned" },
+              }),
+            }),
+          }),
+        }),
+      });
+
+      const result = await ProfileRepository.updateUserRole(
+        mockAdminSupabase as never,
+        "nonexistent_id",
+        "admin"
+      );
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBe("User profile not found.");
+      }
+    });
+
+    it("ProfileRepository.updateUserRole does not produce false success on database errors", async () => {
+      mockFrom.mockReturnValueOnce({
+        update: vi.fn().mockReturnValueOnce({
+          eq: vi.fn().mockReturnValueOnce({
+            select: vi.fn().mockReturnValueOnce({
+              single: vi.fn().mockResolvedValueOnce({
+                data: null,
+                error: { code: "PGRST500", message: "Database connection failed" },
+              }),
+            }),
+          }),
+        }),
+      });
+
+      const result = await ProfileRepository.updateUserRole(
+        mockAdminSupabase as never,
+        "usr_1",
+        "admin"
+      );
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toContain("Database connection failed");
+      }
     });
   });
 

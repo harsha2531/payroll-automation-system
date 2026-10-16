@@ -12,16 +12,14 @@ export async function AuthButton() {
       <span className="text-sm text-muted-foreground hidden sm:inline">
         Signed in as <strong className="text-foreground font-medium">{profile.email}</strong>
       </span>
-      <Badge
-        variant="outline"
-        className={
-          profile.role === "admin"
-            ? "capitalize text-xs font-semibold text-emerald-600 dark:text-emerald-400 border-emerald-500"
-            : "capitalize text-xs font-medium text-muted-foreground"
-        }
-      >
-        {profile.role}
-      </Badge>
+      {profile.role === "admin" && (
+        <Badge
+          variant="outline"
+          className="capitalize text-xs font-semibold text-emerald-600 dark:text-emerald-400 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30"
+        >
+          admin
+        </Badge>
+      )}
       <LogoutButton />
     </div>
   ) : (

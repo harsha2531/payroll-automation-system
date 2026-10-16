@@ -287,5 +287,10 @@ export async function assignUserRoleAction(data: {
     };
   }
 
+  // Also sync app_metadata so Supabase Auth claims immediately reflect the updated role
+  await adminClient.auth.admin.updateUserById(data.targetUserId, {
+    app_metadata: { role: data.role },
+  });
+
   return { success: true };
 }

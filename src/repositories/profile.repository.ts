@@ -120,8 +120,15 @@ export const ProfileRepository = {
         .select()
         .single();
 
-      if (error || !data) {
-        return Result.err(error?.message || "Failed to update user role.");
+      if (error) {
+        if (error.code === "PGRST116") {
+          return Result.err("User profile not found.");
+        }
+        return Result.err(error.message || "Failed to update user role.");
+      }
+
+      if (!data) {
+        return Result.err("User profile not found.");
       }
 
       return Result.ok(mapRowToProfileRecord(data as DatabaseProfileRow));
