@@ -123,6 +123,73 @@ export function parsePayrollWorkbook(buffer: Buffer): PayrollRecord[] {
   return records;
 }
 
+/** Types for validation */
+export interface ValidationIssue {
+  /** Severity of the issue */
+  severity: "error" | "warning";
+  /** Field that triggered the issue */
+  field: keyof PayrollRecord | string;
+  /** Human‑readable message */
+  message: string;
+}
+
+export interface ValidationResult {
+  /** Normalized payroll record */
+  record: PayrollRecord;
+  /** List of validation issues (empty if none) */
+  issues: ValidationIssue[];
+}
+
+/** Trim whitespace from all string fields and preserve numbers as‑is. */
+export function normalizePayrollRecord(rec: PayrollRecord): PayrollRecord {
+  const trim = (s?: string) => (s ? s.trim() : undefined);
+  return {
+    employeeName: trim(rec.employeeName),
+    designation: trim(rec.designation),
+    epfNumber: trim(rec.epfNumber),
+    payrollMonth: trim(rec.payrollMonth),
+    basicSalary: rec.basicSalary,
+    variablePayLabel: trim(rec.variablePayLabel),
+    variablePay: rec.variablePay,
+    deductionLabel: trim(rec.deductionLabel),
+    deduction: rec.deduction,
+    netSalary: rec.netSalary,
+  };
+}
+
+/** Validate a payroll record. Returns a ValidationResult containing the normalized
+ * record and any detected issues.
+ */
+export function validatePayrollRecord(rec: PayrollRecord): ValidationResult {
+  const normalized = normalizePayrollRecord(rec);
+  const issues: ValidationIssue[] = [];
+
+  if (!normalized.employeeName) {
+    issues.push({ severity: "error", field: "employeeName", message: "Employee name is missing" });
+  }
+  if (!normalized.payrollMonth) {
+    issues.push({ severity: "error", field: "payrollMonth", message: "Payroll month is missing or unrecognised" });
+  }
+  if (normalized.basicSalary === undefined) {
+    issues.push({ severity: "error", field: "basicSalary", message: "Basic salary is missing" });
+  } else if (typeof normalized.basicSalary !== "number") {
+    issues.push({ severity: "error", field: "basicSalary", message: "Basic salary is not a valid number" });
+  }
+
+  const numericFields: (keyof PayrollRecord)[] = ["variablePay", "deduction", "netSalary"];
+  for (const f of numericFields) {
+    const v = normalized[f] as unknown;
+    if (v !== undefined && typeof v !== "number") {
+      issues.push({ severity: "error", field: f, message: `${f} is not a valid number` });
+    }
+    if (typeof v === "number" && v < 0) {
+      issues.push({ severity: "warning", field: f, message: `${f} is negative – please review` });
+    }
+  }
+
+  return { record: normalized, issues };
+}
+
 /**
  * Exported for convenience – used by API routes or other server‑side code.
  */
