@@ -4,17 +4,22 @@ import { AuthButton } from "@/components/auth-button";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { AppSidebar } from "@/components/app-shell/app-sidebar";
 import { AuthService } from "@/services/auth.service";
+import { redirect } from "next/navigation";
 
 export default async function ProtectedLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { isAdmin } = await AuthService.getCurrentUserWithProfile();
+  const { user, profile, isAdmin } = await AuthService.getCurrentUserWithProfile();
+
+  if (!user || !profile) {
+    redirect("/auth/login");
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground antialiased">
-      {/* Header bar: authenticated user email with green admin badge */}
+      {/* Header bar: authenticated user email with role badge */}
       <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-border bg-background/95 px-6 backdrop-blur transition-colors">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
@@ -27,7 +32,9 @@ export default async function ProtectedLayout({
             >
               Payroll Automation System
             </Link>
-            <p className="text-xs text-muted-foreground">Admin Portal</p>
+            <p className="text-xs text-muted-foreground">
+              {isAdmin ? "Administrator Portal" : "Payroll Portal"}
+            </p>
           </div>
         </div>
 
@@ -40,10 +47,11 @@ export default async function ProtectedLayout({
       {/* Main layout with left sidebar */}
       <div className="flex flex-1 overflow-hidden">
         <AppSidebar isAdmin={isAdmin} />
-        <main className="flex-1 overflow-y-auto p-6 md:p-8 bg-background">
-          <div className="mx-auto max-w-5xl">{children}</div>
+        <main className="flex-1 overflow-y-auto p-4 md:p-8 bg-background">
+          <div className="mx-auto max-w-6xl">{children}</div>
         </main>
       </div>
     </div>
   );
 }
+

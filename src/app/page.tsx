@@ -1,10 +1,12 @@
 import React from "react";
 import { AppShell } from "@/components/app-shell/app-shell";
 import { CheckCircle2, Code2, Server, Shield } from "lucide-react";
+import { AuthRedirect } from "@/components/auth-redirect";
 
 export default function Home() {
   return (
     <AppShell>
+      <AuthRedirect />
       <div className="space-y-6">
         <div>
           <h2 className="text-2xl font-bold tracking-tight text-foreground">
@@ -81,3 +83,4 @@ export default function Home() {
     </AppShell>
   );
 }
+

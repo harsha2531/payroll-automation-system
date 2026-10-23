@@ -5,7 +5,7 @@ import {
   Banknote,
   Users,
   FileSpreadsheet,
-  Settings,
+  FileText,
   ShieldAlert,
 } from "lucide-react";
 
@@ -20,17 +20,11 @@ export interface NavItem {
 
 const baseNavItems: NavItem[] = [
   {
-    title: "Overview",
-    href: "/",
+    title: "Dashboard",
+    href: "/protected",
     icon: LayoutDashboard,
     disabled: false,
-  },
-  {
-    title: "Payroll Processing",
-    href: "#",
-    icon: Banknote,
-    disabled: true,
-    badge: "Upcoming",
+    badge: "Overview",
   },
   {
     title: "Employees",
@@ -39,18 +33,23 @@ const baseNavItems: NavItem[] = [
     disabled: false,
   },
   {
-    title: "Reports & Pay Slips",
-    href: "#",
+    title: "Import Excel",
+    href: "/import",
     icon: FileSpreadsheet,
-    disabled: true,
-    badge: "Upcoming",
+    disabled: false,
   },
   {
-    title: "System Settings",
-    href: "#",
-    icon: Settings,
-    disabled: true,
-    badge: "Upcoming",
+    title: "Monthly Payroll",
+    href: "/payroll",
+    icon: Banknote,
+    disabled: false,
+    badge: "Payroll Processing",
+  },
+  {
+    title: "Payslips",
+    href: "/payslips",
+    icon: FileText,
+    disabled: false,
   },
 ];
 
@@ -111,6 +110,11 @@ export function AppSidebar({ isAdmin = false }: AppSidebarProps = {}) {
                 <Icon className="h-4 w-4 shrink-0 text-primary" />
                 <span>{item.title}</span>
               </div>
+              {item.badge && (
+                <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                  {item.badge}
+                </span>
+              )}
             </Link>
           );
         })}
