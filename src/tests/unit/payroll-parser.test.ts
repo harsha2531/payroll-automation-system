@@ -3,7 +3,7 @@ import { parsePayrollWorkbook } from '@/services/payroll-parser';
 import fs from 'fs';
 import path from 'path';
 
-const fixturePath = path.resolve(__dirname, '../fixtures/July 2022-Datafield Ssalary-NOW.xlsx');
+const fixturePath = path.resolve(__dirname, '../../tests/fixtures/July 2022-Datafield Ssalary-NOW.xlsx');
 const buffer = fs.readFileSync(fixturePath);
 
 describe('Payroll parser', () => {
