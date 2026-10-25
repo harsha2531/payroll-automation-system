@@ -11,8 +11,10 @@ export default async function ProtectedLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { isAdmin } = await AuthService.getCurrentUserWithProfile();
-
+  const { user, isAdmin } = await AuthService.getCurrentUserWithProfile();
+  if (!user) {
+    redirect("/auth/login");
+  }
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground antialiased">
       {/* Header bar: Page title and authenticated user info with logout action */}

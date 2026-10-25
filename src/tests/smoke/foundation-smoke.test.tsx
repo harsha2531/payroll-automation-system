@@ -1,16 +1,20 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
-import { describe, it, expect } from "vitest";
-import Home from "@/app/page";
+import { describe, it, expect, vi } from "vitest";
 import { AppHeader } from "@/components/app-shell/app-header";
 import { AppSidebar } from "@/components/app-shell/app-sidebar";
+
+// Mock next/navigation redirect before importing Home
+vi.mock("next/navigation", () => ({
+  redirect: vi.fn(),
+}));
+import { redirect } from "next/navigation"; // mocked
+import Home from "@/app/page";
 
 describe("Application Foundation Smoke Tests", () => {
   it("renders AppHeader with application title", () => {
     render(<AppHeader />);
-    expect(
-      screen.getByRole("heading", { name: /payroll automation system/i })
-    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /payroll automation system/i })).toBeInTheDocument();
     expect(screen.getByText(/foundation active/i)).toBeInTheDocument();
   });
 
@@ -21,11 +25,8 @@ describe("Application Foundation Smoke Tests", () => {
     expect(screen.getByText(/payroll processing/i)).toBeInTheDocument();
   });
 
-  it("renders Home page foundation overview", () => {
+  it("redirects Home page to login for unauthenticated users", () => {
     render(<Home />);
-    expect(
-      screen.getByRole("heading", { name: /application foundation initialized/i })
-    ).toBeInTheDocument();
-    expect(screen.getByText(/app router & ts/i)).toBeInTheDocument();
+    expect(redirect).toHaveBeenCalledWith("/auth/login");
   });
 });
