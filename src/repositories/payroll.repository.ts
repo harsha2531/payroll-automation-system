@@ -250,6 +250,42 @@ export const PayrollRunRepository = {
     }
   },
 
+  async findByPeriod(
+    supabase: SupabaseClient<Database>,
+    year: number,
+    month: number
+  ): Promise<PayrollRun[]> {
+    try {
+      const { data, error } = await supabase
+        .from("payroll_runs")
+        .select("*")
+        .eq("year", year)
+        .eq("month", month)
+        .order("sequence_number", { ascending: true });
+      if (error || !data) return [];
+      return data.map((row) => mapPayrollRun(row as PayrollRunRow));
+    } catch {
+      return [];
+    }
+  },
+
+  async deleteRun(
+    supabase: SupabaseClient<Database>,
+    id: string
+  ): Promise<Result<boolean>> {
+    try {
+      const { error } = await supabase.from("payroll_runs").delete().eq("id", id);
+      if (error) {
+        return Result.err(mapDatabaseError(error, "Failed to delete payroll run."));
+      }
+      return Result.ok(true);
+    } catch (err) {
+      return Result.err(
+        mapDatabaseError(err, "Unexpected error deleting payroll run.")
+      );
+    }
+  },
+
   async updateRunStatus(
     supabase: SupabaseClient<Database>,
     id: string,
@@ -336,6 +372,68 @@ export const PayrollItemRepository = {
     } catch (err) {
       return Result.err(
         mapDatabaseError(err, "Unexpected error listing payroll items.")
+      );
+    }
+  },
+
+  async listByRunIds(
+    supabase: SupabaseClient<Database>,
+    runIds: string[]
+  ): Promise<PayrollItem[]> {
+    if (runIds.length === 0) return [];
+    try {
+      const { data, error } = await supabase
+        .from("payroll_items")
+        .select("*")
+        .in("payroll_run_id", runIds);
+      if (error || !data) return [];
+      return data.map((row) => mapPayrollItem(row as PayrollItemRow));
+    } catch {
+      return [];
+    }
+  },
+
+  async deleteByRunId(
+    supabase: SupabaseClient<Database>,
+    payrollRunId: string
+  ): Promise<Result<boolean>> {
+    try {
+      const { error } = await supabase
+        .from("payroll_items")
+        .delete()
+        .eq("payroll_run_id", payrollRunId);
+      if (error) {
+        return Result.err(
+          mapDatabaseError(error, "Failed to remove payroll items for rollback.")
+        );
+      }
+      return Result.ok(true);
+    } catch (err) {
+      return Result.err(
+        mapDatabaseError(err, "Unexpected error removing payroll items.")
+      );
+    }
+  },
+
+  async createItems(
+    supabase: SupabaseClient<Database>,
+    inputs: PayrollItemInsert[]
+  ): Promise<Result<PayrollItem[]>> {
+    if (inputs.length === 0) return Result.ok([]);
+    try {
+      const { data, error } = await supabase
+        .from("payroll_items")
+        .insert(inputs)
+        .select("*");
+      if (error || !data) {
+        return Result.err(
+          mapDatabaseError(error, "Failed to create payroll items.")
+        );
+      }
+      return Result.ok(data.map((row) => mapPayrollItem(row as PayrollItemRow)));
+    } catch (err) {
+      return Result.err(
+        mapDatabaseError(err, "Unexpected error creating payroll items.")
       );
     }
   },
