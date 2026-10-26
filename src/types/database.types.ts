@@ -3,6 +3,7 @@
  * Auto-generated / aligned with PostgreSQL schema migrations:
  * - 20261013000000_create_profiles_table.sql
  * - 20261013010000_create_payroll_schema.sql
+ * - 20261026000000_employee_epf_and_payroll_details.sql
  *
  * Regeneration Command:
  *   npx supabase gen types typescript --local > src/types/database.types.ts
@@ -61,6 +62,7 @@ export interface Database {
           designation: string | null;
           department: string | null;
           phone: string | null;
+          epf_number: string | null;
           status: "active" | "inactive" | "terminated" | "on_leave";
           hire_date: string | null;
           termination_date: string | null;
@@ -75,6 +77,7 @@ export interface Database {
           designation?: string | null;
           department?: string | null;
           phone?: string | null;
+          epf_number?: string | null;
           status?: "active" | "inactive" | "terminated" | "on_leave";
           hire_date?: string | null;
           termination_date?: string | null;
@@ -89,6 +92,7 @@ export interface Database {
           designation?: string | null;
           department?: string | null;
           phone?: string | null;
+          epf_number?: string | null;
           status?: "active" | "inactive" | "terminated" | "on_leave";
           hire_date?: string | null;
           termination_date?: string | null;
@@ -96,6 +100,57 @@ export interface Database {
           updated_at?: string;
         };
         Relationships: [];
+      };
+
+      employee_payroll_details: {
+        Row: {
+          id: string;
+          employee_id: string;
+          basic_salary: number;
+          allowances: number;
+          allowances_breakdown: Json;
+          variable_pay_label: string | null;
+          variable_pay_amount: number;
+          notes: string | null;
+          effective_from: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          employee_id: string;
+          basic_salary?: number;
+          allowances?: number;
+          allowances_breakdown?: Json;
+          variable_pay_label?: string | null;
+          variable_pay_amount?: number;
+          notes?: string | null;
+          effective_from?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          employee_id?: string;
+          basic_salary?: number;
+          allowances?: number;
+          allowances_breakdown?: Json;
+          variable_pay_label?: string | null;
+          variable_pay_amount?: number;
+          notes?: string | null;
+          effective_from?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "employee_payroll_details_employee_id_fkey";
+            columns: ["employee_id"];
+            isOneToOne: true;
+            referencedRelation: "employees";
+            referencedColumns: ["id"];
+          },
+        ];
       };
 
       payroll_runs: {

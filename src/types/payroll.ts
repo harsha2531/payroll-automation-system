@@ -13,11 +13,37 @@ export interface Employee {
   designation: string | null;
   department: string | null;
   phone: string | null;
+  /** Optional EPF membership number (when available). */
+  epfNumber: string | null;
   status: EmployeeStatus;
   hireDate: string | null;
   terminationDate: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+/**
+ * Current default compensation for an employee.
+ * Intentionally separate from monthly `PayrollItem` snapshots so editing
+ * defaults never rewrites historical payslip amounts.
+ */
+export interface EmployeePayrollDetails {
+  id: string;
+  employeeId: string;
+  basicSalary: number;
+  allowances: number;
+  allowancesBreakdown: Record<string, unknown>;
+  variablePayLabel: string | null;
+  variablePayAmount: number;
+  notes: string | null;
+  effectiveFrom: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Employee master record plus optional current payroll defaults. */
+export interface EmployeeWithPayrollDetails extends Employee {
+  payrollDetails: EmployeePayrollDetails | null;
 }
 
 export type PayrollRunStatus =

@@ -65,6 +65,12 @@ export const createEmployeeSchema = z
       .max(50, "Phone number must not exceed 50 characters")
       .optional()
       .nullable(),
+    epfNumber: z
+      .string()
+      .trim()
+      .max(50, "EPF number must not exceed 50 characters")
+      .optional()
+      .nullable(),
     status: employeeStatusSchema.default("active"),
     hireDate: z
       .string()
@@ -108,6 +114,7 @@ export const updateEmployeeSchema = z
     designation: z.string().trim().max(100).optional().nullable(),
     department: z.string().trim().max(100).optional().nullable(),
     phone: z.string().trim().max(50).optional().nullable(),
+    epfNumber: z.string().trim().max(50).optional().nullable(),
     status: employeeStatusSchema.optional(),
     hireDate: z
       .string()
