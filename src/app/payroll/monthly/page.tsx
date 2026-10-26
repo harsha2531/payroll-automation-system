@@ -1,6 +1,90 @@
-"use client";
 import { AuthService } from "@/services/auth.service";
-import { fetchPayrollRows, startPayrollProcessing, retryPdfGeneration, retryEmailDelivery } from "@/services/payroll-ui.service";
+import MonthlyPayrollClient from "./MonthlyPayrollClient";
+
+export default async function MonthlyPayrollPage() {
+  await AuthService.requireAdmin();
+  return <MonthlyPayrollClient />;
+}
+
+import MonthlyPayrollClient from "./MonthlyPayrollClient";
+
+export default async function MonthlyPayrollPage() {
+  await AuthService.requireAdmin();
+  return <MonthlyPayrollClient />;
+}
+
+import MonthlyPayrollClient from "./MonthlyPayrollClient";
+
+export default async function MonthlyPayrollPage() {
+  await AuthService.requireAdmin();
+  return <MonthlyPayrollClient />;
+}
+
+import MonthlyPayrollClient from "./MonthlyPayrollClient";
+
+export default async function MonthlyPayrollPage() {
+  await AuthService.requireAdmin();
+  return <MonthlyPayrollClient />;
+}
+
+import MonthlyPayrollClient from "./MonthlyPayrollClient";
+
+export default async function MonthlyPayrollPage() {
+  await AuthService.requireAdmin();
+  return <MonthlyPayrollClient />;
+}
+
+import MonthlyPayrollClient from "./MonthlyPayrollClient";
+
+export default async function MonthlyPayrollPage() {
+  await AuthService.requireAdmin();
+  return <MonthlyPayrollClient />;
+}
+
+import MonthlyPayrollClient from "./MonthlyPayrollClient";
+
+export default async function MonthlyPayrollPage() {
+  await AuthService.requireAdmin();
+  return <MonthlyPayrollClient />;
+}
+
+import MonthlyPayrollClient from "./MonthlyPayrollClient";
+
+export default async function MonthlyPayrollPage() {
+  await AuthService.requireAdmin();
+  return <MonthlyPayrollClient />;
+}
+
+import MonthlyPayrollClient from "./MonthlyPayrollClient";
+
+export default async function MonthlyPayrollPage() {
+  await AuthService.requireAdmin();
+  return <MonthlyPayrollClient />;
+}
+
+import MonthlyPayrollClient from "./MonthlyPayrollClient";
+
+export default async function MonthlyPayrollPage() {
+  await AuthService.requireAdmin();
+  return <MonthlyPayrollClient />;
+}
+
+import MonthlyPayrollClient from "./MonthlyPayrollClient";
+
+export default async function MonthlyPayrollPage() {
+  await AuthService.requireAdmin();
+  return <MonthlyPayrollClient />;
+}
+
+import MonthlyPayrollClient from "./MonthlyPayrollClient";
+
+export default async function MonthlyPayrollPage() {
+  await AuthService.requireAdmin();
+  return <MonthlyPayrollClient />;
+}
+
+
+
 import { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -23,7 +107,7 @@ export interface PayrollRow {
   errorMessage?: string | null;
 }
 
-export default function MonthlyPayrollPage() {
+/* Deprecated client implementation removed */
   // Verify admin on client side (simplified)
   useEffect(() => {
     AuthService.requireAdmin().catch(() => {
