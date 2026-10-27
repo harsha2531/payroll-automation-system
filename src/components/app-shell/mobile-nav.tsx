@@ -25,13 +25,13 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
         { title: "Dashboard", href: "/protected", icon: LayoutDashboard },
         { title: "Employees", href: "/employees", icon: Users },
         { title: "Import Excel", href: "/payroll/import", icon: FileSpreadsheet },
-        { title: "Monthly Payroll", href: "/payroll", icon: Banknote },
+        { title: "Monthly Payroll", href: "/payroll/monthly", icon: Banknote },
         { title: "Payslips", href: "/payslips", icon: FileText },
       ]
     : [
         { title: "Overview", href: "/", icon: LayoutDashboard },
         { title: "Employees", href: "/employees", icon: Users },
-        { title: "Monthly Payroll", href: "/payroll", icon: Banknote },
+        { title: "Monthly Payroll", href: "/payroll/monthly", icon: Banknote },
         { title: "Payslips", href: "/payslips", icon: FileText },
       ];
 

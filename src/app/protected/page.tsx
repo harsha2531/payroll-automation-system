@@ -217,7 +217,7 @@ export default async function ProtectedDashboardPage() {
             <div className="mt-4 pt-3 border-t border-border flex items-center justify-between text-xs">
               <span className="text-muted-foreground">Monthly Processing</span>
               <Link
-                href="/payroll"
+                href="/payroll/monthly"
                 className="text-primary hover:underline font-medium inline-flex items-center gap-1"
               >
                 Manage <ArrowRight className="h-3 w-3" />
@@ -315,7 +315,7 @@ export default async function ProtectedDashboardPage() {
             </p>
           </div>
           <Button asChild variant="outline" size="sm">
-            <Link href="/payroll">View all cycles</Link>
+            <Link href="/payroll/monthly">View all cycles</Link>
           </Button>
         </div>
 
