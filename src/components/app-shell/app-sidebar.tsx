@@ -69,7 +69,7 @@ const adminPortalNavItems: NavItem[] = [
   },
   {
     title: "Monthly Payroll",
-    href: "/payroll",
+    href: "/payroll/monthly",
     icon: Banknote,
     disabled: false,
     badge: "Planned",
