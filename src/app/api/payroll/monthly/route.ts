@@ -11,43 +11,46 @@ export async function GET(request: Request) {
   const year = yearParam ? parseInt(yearParam, 10) : new Date().getFullYear();
   const month = monthParam ? parseInt(monthParam, 10) : new Date().getMonth() + 1;
 
-  // Use a server‑side Supabase client (no service‑role key exposed to the browser)
   const supabase = await createServerSupabaseClient();
 
+  // Pull needed snapshot columns, employee status, and the payslip document storage_path.
   const { data, error } = await supabase
-    .from("payrolls")
-    .select(
-      `employee_id,
-       employee_name,
-       employee_number,
-       department,
-       designation,
-       gross_pay,
-       net_pay,
-       payslip_status,
-       payslip_url,
-       error_message`
-    )
+    .from("payroll_items")
+    .select(`
+      employee_id,
+      employee_name_snapshot,
+      employee_number_snapshot,
+      gross_pay,
+      net_pay,
+      error_message,
+      employees (status),
+      payslip_documents (storage_path)
+    `)
     .eq("year", year)
     .eq("month", month);
 
   if (error) {
-    // Return a proper error response – the UI will show an error state.
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  const rows: PayrollRow[] = (data ?? []).map((r: any) => ({
-    employeeId: r.employee_id,
-    employeeName: r.employee_name,
-    employeeNumber: r.employee_number,
-    department: r.department,
-    designation: r.designation,
-    grossPay: Number(r.gross_pay),
-    netPay: Number(r.net_pay),
-    payslipStatus: r.payslip_status as PayrollRow["payslipStatus"],
-    payslipUrl: r.payslip_url,
-    errorMessage: r.error_message,
-  }));
+  const rows: PayrollRow[] = (data ?? []).map((r: any) => {
+    const emp = r.employees || {};
+    const doc = r.payslip_documents?.[0] || {};
+    return {
+      employeeId: r.employee_id,
+      employeeName: r.employee_name_snapshot ?? "",
+      employeeNumber: r.employee_number_snapshot ?? "",
+      department: undefined,
+      designation: undefined,
+      grossPay: Number(r.gross_pay),
+      netPay: Number(r.net_pay),
+      // Use employee status as UI status (kept under payslipStatus name for compatibility).
+      payslipStatus: (emp.status ?? "pending") as PayrollRow["payslipStatus"],
+      // Map the storage_path from payslip_documents to the UI's payslipUrl field.
+      payslipUrl: doc.storage_path ?? null,
+      errorMessage: r.error_message,
+    };
+  });
 
   return NextResponse.json(rows);
 }
