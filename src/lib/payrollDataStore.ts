@@ -115,10 +115,10 @@ export function retryPdf(employeeId: string, year: number, month: number): void 
   const updated = rows.map((row) =>
     row.employeeId === employeeId
       ? {
-          ...row,
-          payslipStatus: "generated",
-          payslipUrl: `https://example.com/payslip/${employeeId}-${year}-${month}.pdf`,
-        }
+        ...row,
+        payslipStatus: "generated",
+        payslipUrl: `https://example.com/payslip/${employeeId}-${year}-${month}.pdf`,
+      }
       : row,
   );
   setPayrollRows(year, month, updated);

@@ -10,14 +10,14 @@
  *   construct a deterministic email address from the employeeNumber.
  */
 
-import { createClient } from "brevo"; // npm i brevo
+import { BrevoClient } from "@getbrevo/brevo";
 
 const BREVO_API_KEY = process.env.BREVO_API_KEY ?? "";
 if (!BREVO_API_KEY) {
   console.warn("BREVO_API_KEY is not set – email sending will fail.");
 }
 
-const brevo = createClient({ apiKey: BREVO_API_KEY });
+const brevo = new BrevoClient({ apiKey: BREVO_API_KEY });
 
 /**
  * Send a payslip PDF to the employee via Brevo.
@@ -37,7 +37,7 @@ export async function sendPayslipEmail(
   const toEmail = `${employeeNumber}@example.com`;
 
   const response = await brevo.smtp.sendTransacEmail({
-    sender: { name: "Company Payroll", email: "payroll@example.com" },
+    sender: { name: "Startup Solutions (Pvt)Ltd", email: "harshanimeda@gmail.com" },
     to: [{ email: toEmail, name: employeeName }],
     subject: "Your Monthly Payslip",
     htmlContent: `<p>Dear ${employeeName},</p><p>Please find attached your payslip for the selected period.</p>`,
