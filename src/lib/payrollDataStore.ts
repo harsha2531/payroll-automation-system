@@ -2,7 +2,7 @@
 // In‑memory mock data store for monthly payroll rows and processing jobs.
 // Replace with real DB access (e.g., Prisma) in production.
 
-import { PayrollRow } from "@/types/payroll-ui";
+import { PayrollRow, PayslipStatus } from "@/types/payroll-ui";
 import { generatePayslipPdf } from "./payrollPdfService";
 import { sendPayslipEmail } from "./brevoEmailService";
 import { createJob, getJob, PayrollJob } from "./payrollJobStore";
@@ -112,11 +112,11 @@ export function getJobStatus(jobId: string): PayrollJob | undefined {
  */
 export function retryPdf(employeeId: string, year: number, month: number): void {
   const rows = getPayrollRows(year, month);
-  const updated = rows.map((row) =>
+  const updated: PayrollRow[] = rows.map((row) =>
     row.employeeId === employeeId
       ? {
         ...row,
-        payslipStatus: "generated",
+        payslipStatus: "generated" as PayslipStatus,
         payslipUrl: `https://example.com/payslip/${employeeId}-${year}-${month}.pdf`,
       }
       : row,
@@ -124,12 +124,13 @@ export function retryPdf(employeeId: string, year: number, month: number): void 
   setPayrollRows(year, month, updated);
 }
 
+
 /** Retry email delivery – simply mark status as "emailed" if a payslip exists. */
 export function retryEmail(employeeId: string, year: number, month: number): void {
   const rows = getPayrollRows(year, month);
   const updated = rows.map((row) =>
     row.employeeId === employeeId && row.payslipUrl
-      ? { ...row, payslipStatus: "emailed" }
+      ? { ...row, payslipStatus: "emailed" as PayslipStatus }
       : row,
   );
   setPayrollRows(year, month, updated);

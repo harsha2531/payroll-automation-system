@@ -36,7 +36,7 @@ export async function sendPayslipEmail(
   // In a real system you would query the Users table for the actual address.
   const toEmail = `${employeeNumber}@example.com`;
 
-  const response = await brevo.smtp.sendTransacEmail({
+  const response = await brevo.transactionalEmails.sendTransacEmail({
     sender: { name: "Startup Solutions (Pvt)Ltd", email: "harshanimeda@gmail.com" },
     to: [{ email: toEmail, name: employeeName }],
     subject: "Your Monthly Payslip",
