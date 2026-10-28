@@ -97,7 +97,7 @@ export default function MonthlyPayrollClient() {
             <label className="text-sm font-medium">Year:</label>
             <select value={year} onChange={e => setYear(parseInt(e.target.value))} className="border rounded px-2 py-1">
               {[...Array(5)].map((_, i) => {
-                const y = new Date().getFullYear() - 2 + i;
+                const y = new Date().getFullYear() - 4 + i;
                 return (<option key={y} value={y}>{y}</option>);
               })}
             </select>
