@@ -70,13 +70,13 @@ export default function MonthlyPayrollClient() {
   }
 
   async function handleRetryPdf(id: string) {
-    await retryPdfGeneration(id);
+    await retryPdfGeneration(id, year, month);
     const refreshed = await fetchPayrollRows(year, month);
     setRows(refreshed);
   }
 
   async function handleRetryEmail(id: string) {
-    await retryEmailDelivery(id);
+    await retryEmailDelivery(id, year, month);
     const refreshed = await fetchPayrollRows(year, month);
     setRows(refreshed);
   }
