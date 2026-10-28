@@ -50,15 +50,6 @@ export async function retryPdfGeneration(payrollItemId: string, year: number, mo
     throw new Error(`Retry PDF failed: ${resp.status} ${err}`);
   }
 }
-  const resp = await fetch(`${API_BASE}/api/payroll/${payrollItemId}/retry-pdf`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-  });
-  if (!resp.ok) {
-    const err = await resp.text();
-    throw new Error(`Retry PDF failed: ${resp.status} ${err}`);
-  }
-}
 
 /** Retry email delivery for a specific payroll item. */
 export async function retryEmailDelivery(payrollItemId: string, year: number, month: number): Promise<void> {
@@ -66,15 +57,6 @@ export async function retryEmailDelivery(payrollItemId: string, year: number, mo
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ year, month }),
-  });
-  if (!resp.ok) {
-    const err = await resp.text();
-    throw new Error(`Retry email failed: ${resp.status} ${err}`);
-  }
-}
-  const resp = await fetch(`${API_BASE}/api/payroll/${payrollItemId}/retry-email`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
   });
   if (!resp.ok) {
     const err = await resp.text();
