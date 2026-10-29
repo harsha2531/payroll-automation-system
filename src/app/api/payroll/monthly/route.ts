@@ -26,8 +26,9 @@ export async function GET(request: Request) {
       employees (status),
       payslip_documents (storage_path)
     `)
-    .eq("year", year)
-    .eq("month", month);
+    // Filter by the linked payroll run's year and month
+    .eq("payroll_runs.year", year)
+    .eq("payroll_runs.month", month);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
