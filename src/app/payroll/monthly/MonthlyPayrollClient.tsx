@@ -135,8 +135,8 @@ export default function MonthlyPayrollClient() {
                     <tr key={row.employeeId} className="border-b">
                       <td className="px-3 py-2">{row.employeeName}</td>
                       <td className="px-3 py-2">{row.employeeNumber}</td>
-                      <td className="px-3 py-2 text-right">{new Intl.NumberFormat("en-US", { style: "currency", currency: "RS" }).format(row.grossPay)}</td>
-                      <td className="px-3 py-2 text-right">{new Intl.NumberFormat("en-US", { style: "currency", currency: "RS" }).format(row.netPay)}</td>
+                      <td className="px-3 py-2 text-right">{new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(row.grossPay)}</td>
+                      <td className="px-3 py-2 text-right">{new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(row.netPay)}</td>
                       <td className="px-3 py-2 text-center">
                         <Badge variant={row.payslipStatus === "generated" ? "default" : row.payslipStatus === "emailed" ? "secondary" : row.payslipStatus === "failed" ? "destructive" : "outline"}>
                           {row.payslipStatus.toUpperCase()}
