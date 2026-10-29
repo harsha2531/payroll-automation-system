@@ -7,7 +7,7 @@ import { fetchPayrollRows, startPayrollProcessing, retryPdfGeneration, retryEmai
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, RefreshCcw, Loader2, FileCheck, Mail } from "lucide-react";
+import { Calendar, RefreshCcw, Loader2, FileCheck, Mail, Download, Info } from "lucide-react";
 
 export type PayslipStatus = "pending" | "generated" | "emailed" | "failed";
 
@@ -135,8 +135,8 @@ export default function MonthlyPayrollClient() {
                     <tr key={row.employeeId} className="border-b">
                       <td className="px-3 py-2">{row.employeeName}</td>
                       <td className="px-3 py-2">{row.employeeNumber}</td>
-                      <td className="px-3 py-2 text-right">{new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(row.grossPay)}</td>
-                      <td className="px-3 py-2 text-right">{new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(row.netPay)}</td>
+                      <td className="px-3 py-2 text-right">{new Intl.NumberFormat("en-US", { style: "currency", currency: "RS" }).format(row.grossPay)}</td>
+                      <td className="px-3 py-2 text-right">{new Intl.NumberFormat("en-US", { style: "currency", currency: "RS" }).format(row.netPay)}</td>
                       <td className="px-3 py-2 text-center">
                         <Badge variant={row.payslipStatus === "generated" ? "default" : row.payslipStatus === "emailed" ? "secondary" : row.payslipStatus === "failed" ? "destructive" : "outline"}>
                           {row.payslipStatus.toUpperCase()}
