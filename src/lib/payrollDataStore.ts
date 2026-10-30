@@ -62,6 +62,8 @@ export function startProcessing(
   year: number,
   month: number,
 ): PayrollJob {
+  // Removed debug alert – job creation is handled by createJob()
+
   const job = createJob();
   // Run the real payroll logic asynchronously.
   (async () => {
@@ -73,7 +75,9 @@ export function startProcessing(
         if (row.payslipStatus === "pending" || row.payslipStatus === "failed") {
           try {
             // 1️⃣ Generate PDF and upload to Supabase.
+            alert("Start pdf");
             const pdfUrl = await generatePayslipPdf(row.employeeId, year, month);
+            alert(pdfUrl);
             row.payslipUrl = pdfUrl;
             row.payslipStatus = "generated";
             // 2️⃣ Send email via Brevo.
@@ -83,6 +87,7 @@ export function startProcessing(
             // Capture failure – keep status as failed and record error.
             row.payslipStatus = "failed";
             row.errorMessage = (e as Error).message;
+            console.log(e);
           }
         }
       }
