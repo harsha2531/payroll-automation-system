@@ -28,4 +28,14 @@ export interface PayrollRow {
   payslipUrl?: string | null;
   /** Optional error message when generation or email fails */
   errorMessage?: string | null;
+  /** Optional payroll item ID in database */
+  payrollItemId?: string | null;
+  /** Optional payroll run ID in database */
+  payrollRunId?: string | null;
+  /** Optional employee email */
+  employeeEmail?: string | null;
+  /** Optional detailed PDF status */
+  pdfStatus?: "pending" | "generated" | "failed";
+  /** Optional detailed email delivery status */
+  emailStatus?: "pending" | "sent" | "failed";
 }

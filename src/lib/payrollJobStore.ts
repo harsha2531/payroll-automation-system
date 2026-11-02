@@ -15,17 +15,6 @@ export function createJob(): PayrollJob {
   const jobId = `job_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
   const job: PayrollJob = { jobId, status: "queued" };
   jobs.set(jobId, job);
-  // Simulate async processing.
-  setTimeout(() => {
-    // Randomly succeed or fail for demo purposes.
-    const succeed = Math.random() > 0.2;
-    const stored = jobs.get(jobId);
-    if (stored) {
-      stored.status = succeed ? "completed" : "failed";
-      if (!succeed) stored.error = "Simulated processing error";
-      jobs.set(jobId, stored);
-    }
-  }, 3000);
   return job;
 }
 

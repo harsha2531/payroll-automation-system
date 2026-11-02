@@ -4,25 +4,12 @@
 
 import { useState, useEffect } from "react";
 import { fetchPayrollRows, startPayrollProcessing, retryPdfGeneration, retryEmailDelivery } from "@/services/payroll-ui.service";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { PayrollRow } from "@/types/payroll-ui";
+import { Card, CardHeader, CardDescription, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, RefreshCcw, Loader2, FileCheck, Mail, Download, Info } from "lucide-react";
+import { Calendar, RefreshCcw, Loader2, FileCheck, Mail, Download } from "lucide-react";
 
-export type PayslipStatus = "pending" | "generated" | "emailed" | "failed";
-
-export interface PayrollRow {
-  employeeId: string;
-  employeeName: string;
-  employeeNumber: string;
-  department?: string | null;
-  designation?: string | null;
-  grossPay: number;
-  netPay: number;
-  payslipStatus: PayslipStatus;
-  payslipUrl?: string | null;
-  errorMessage?: string | null;
-}
 
 export default function MonthlyPayrollClient() {
   const [year, setYear] = useState(new Date().getFullYear());
@@ -70,15 +57,23 @@ export default function MonthlyPayrollClient() {
   }
 
   async function handleRetryPdf(id: string) {
-    await retryPdfGeneration(id, year, month);
-    const refreshed = await fetchPayrollRows(year, month);
-    setRows(refreshed);
+    try {
+      await retryPdfGeneration(id, year, month);
+      const refreshed = await fetchPayrollRows(year, month);
+      setRows(refreshed);
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   async function handleRetryEmail(id: string) {
-    await retryEmailDelivery(id, year, month);
-    const refreshed = await fetchPayrollRows(year, month);
-    setRows(refreshed);
+    try {
+      await retryEmailDelivery(id, year, month);
+      const refreshed = await fetchPayrollRows(year, month);
+      setRows(refreshed);
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   return (
@@ -138,26 +133,95 @@ export default function MonthlyPayrollClient() {
                       <td className="px-3 py-2 text-right">{new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(row.grossPay)}</td>
                       <td className="px-3 py-2 text-right">{new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(row.netPay)}</td>
                       <td className="px-3 py-2 text-center">
-                        <Badge variant={row.payslipStatus === "generated" ? "default" : row.payslipStatus === "emailed" ? "secondary" : row.payslipStatus === "failed" ? "destructive" : "outline"}>
-                          {row.payslipStatus.toUpperCase()}
-                        </Badge>
+                        <div className="flex flex-col items-center gap-1">
+                          <Badge
+                            variant={
+                              row.payslipStatus === "emailed"
+                                ? "secondary"
+                                : row.payslipStatus === "generated"
+                                ? "default"
+                                : row.payslipStatus === "failed"
+                                ? "destructive"
+                                : "outline"
+                            }
+                          >
+                            {row.payslipStatus.toUpperCase()}
+                          </Badge>
+                          {row.errorMessage && (
+                            <span
+                              className="text-xs text-destructive max-w-[150px] truncate"
+                              title={row.errorMessage}
+                            >
+                              {row.errorMessage}
+                            </span>
+                          )}
+                        </div>
                       </td>
-                      <td className="px-3 py-2 text-center space-x-1">
-                        {row.payslipStatus === "generated" && row.payslipUrl && (
-                          <a href={row.payslipUrl} target="_blank" rel="noopener" className="text-primary hover:underline">
-                            <FileCheck className="inline h-4 w-4" />
-                          </a>
-                        )}
-                        {row.payslipStatus === "failed" && (
-                          <>
-                            <Button variant="ghost" size="sm" onClick={() => handleRetryPdf(row.employeeId)} title="Retry PDF">
+                      <td className="px-3 py-2 text-center">
+                        <div className="flex items-center justify-center space-x-1">
+                          {/* When PDF exists: show View and Download actions */}
+                          {row.payslipUrl && (
+                            <>
+                              <a
+                                href={row.payslipUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center justify-center h-8 w-8 rounded-md text-sm hover:bg-accent hover:text-accent-foreground text-primary"
+                                title="View Payslip"
+                              >
+                                <FileCheck className="h-4 w-4" />
+                              </a>
+                              <a
+                                href={row.payslipUrl}
+                                download={`Payslip_${row.employeeNumber}_${year}_${month}.pdf`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center justify-center h-8 w-8 rounded-md text-sm hover:bg-accent hover:text-accent-foreground text-primary"
+                                title="Download PDF"
+                              >
+                                <Download className="h-4 w-4" />
+                              </a>
+                            </>
+                          )}
+
+                          {/* When PDF failed: show Retry PDF action */}
+                          {(row.payslipStatus === "failed" && !row.payslipUrl) && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                handleRetryPdf(row.payrollItemId || row.employeeId)
+                              }
+                              title="Retry PDF"
+                            >
                               <RefreshCcw className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="sm" onClick={() => handleRetryEmail(row.employeeId)} title="Retry Email">
-                              <Mail className="h-4 w-4" />
+                          )}
+
+                          {/* When email not yet successful: show Send Email or Retry Email */}
+                          {row.payslipUrl && row.payslipStatus !== "emailed" && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                handleRetryEmail(row.payrollItemId || row.employeeId)
+                              }
+                              title={
+                                row.payslipStatus === "failed"
+                                  ? "Retry Email"
+                                  : "Send Email"
+                              }
+                            >
+                              <Mail
+                                className={`h-4 w-4 ${
+                                  row.payslipStatus === "failed"
+                                    ? "text-destructive"
+                                    : ""
+                                }`}
+                              />
                             </Button>
-                          </>
-                        )}
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))

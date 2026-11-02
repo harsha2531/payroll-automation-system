@@ -181,7 +181,7 @@ export async function generatePayslipPdf(
   month: number,
 ): Promise<string> {
   // 1. Retrieve payroll row for the employee.
-  const rows = getPayrollRows(year, month);
+  const rows = await getPayrollRows(year, month);
   const employee = rows.find((r) => r.employeeId === employeeId);
   if (!employee) {
     throw new Error(`Payroll row not found for employee ${employeeId}`);

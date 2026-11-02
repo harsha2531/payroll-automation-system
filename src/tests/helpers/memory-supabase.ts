@@ -168,13 +168,9 @@ class QueryBuilder implements PromiseLike<{
     return result;
   }
 
-  then<TResult1 = unknown, TResult2 = never>(
-    resolve: (value: {
-      data: Row[] | null;
-      error: { message: string; code?: string } | null;
-      count: number | null;
-    }) => TResult1,
-    reject?: (reason: unknown) => TResult2
+  then<TResult1 = { data: Row[] | null; error: { message: string; code?: string } | null; count: number | null }, TResult2 = never>(
+    resolve?: ((value: { data: Row[] | null; error: { message: string; code?: string } | null; count: number | null }) => TResult1 | PromiseLike<TResult1>) | null,
+    reject?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null
   ): Promise<TResult1 | TResult2> {
     return Promise.resolve(this.execute()).then(resolve, reject);
   }
