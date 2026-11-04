@@ -23,7 +23,7 @@ describe("payrollDataStore", () => {
     vi.clearAllMocks();
   });
 
-  it("1. getPayrollRows() retrieves actual saved payroll records for selected period from Supabase", async () => {
+  it("1. getPayrollRows() retrieves actual saved payroll records for selected period from Supabase including real employee email", async () => {
     const mockSupabase = {
       from: vi.fn((table: string) => {
         if (table === "payroll_runs") {
@@ -53,7 +53,10 @@ describe("payrollDataStore", () => {
                   employee_id: "emp-101",
                   employee_name_snapshot: "John Smith",
                   employee_number_snapshot: "EMP001",
-                  employee_email_snapshot: "john@example.com",
+                  employee_email_snapshot: "john.snapshot@company.com",
+                  employees: {
+                    email: "john.authoritative@company.com",
+                  },
                   department_snapshot: "Engineering",
                   designation_snapshot: "Lead Developer",
                   gross_pay: 150000,
@@ -74,6 +77,7 @@ describe("payrollDataStore", () => {
                     {
                       id: "email-1",
                       delivery_status: "sent",
+                      recipient_email: "john.authoritative@company.com",
                     },
                   ],
                 },
@@ -100,6 +104,7 @@ describe("payrollDataStore", () => {
     expect(rows[0].employeeId).toBe("emp-101");
     expect(rows[0].employeeName).toBe("John Smith");
     expect(rows[0].employeeNumber).toBe("EMP001");
+    expect(rows[0].employeeEmail).toBe("john.authoritative@company.com");
     expect(rows[0].grossPay).toBe(150000);
     expect(rows[0].netPay).toBe(135000);
     expect(rows[0].payslipStatus).toBe("emailed");
@@ -143,7 +148,7 @@ describe("payrollDataStore", () => {
     expect(status?.error).toContain("No payroll records found for period 2025-1");
   });
 
-  it("3. Every eligible payroll record enters the processing loop, generating PDF and sending email", async () => {
+  it("3. Every eligible payroll record enters the processing loop, generating PDF and sending email to real employee email", async () => {
     vi.mocked(pdfService.generatePayslipPdf).mockResolvedValue(
       "https://storage.local/payslip/EMP002.pdf"
     );
@@ -183,6 +188,7 @@ describe("payrollDataStore", () => {
                   employee_id: "emp-202",
                   employee_name_snapshot: "Sarah Connor",
                   employee_number_snapshot: "EMP002",
+                  employee_email_snapshot: "sarah.connor@sky.net",
                   gross_pay: 90000,
                   net_pay: 82000,
                   error_message: null,
@@ -193,6 +199,16 @@ describe("payrollDataStore", () => {
               error: null,
             }),
             update: updateItemMock,
+          };
+        }
+        if (table === "employees") {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: { email: "sarah.connor@sky.net" },
+              error: null,
+            }),
           };
         }
         if (table === "payslip_documents") {
@@ -213,10 +229,16 @@ describe("payrollDataStore", () => {
       "emp-202",
       "Sarah Connor",
       "EMP002",
-      "https://storage.local/payslip/EMP002.pdf"
+      "https://storage.local/payslip/EMP002.pdf",
+      "sarah.connor@sky.net",
+      expect.anything()
     );
     expect(upsertDocMock).toHaveBeenCalled();
-    expect(insertEmailMock).toHaveBeenCalled();
+    expect(insertEmailMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recipient_email: "sarah.connor@sky.net",
+      })
+    );
 
     const status = getJobStatus(job.jobId);
     expect(status?.status).toBe("completed");
@@ -281,6 +303,7 @@ describe("payrollDataStore", () => {
                   employee_id: "emp-done",
                   employee_name_snapshot: "Already Done",
                   employee_number_snapshot: "EMP999",
+                  employee_email_snapshot: "done@company.com",
                   gross_pay: 100000,
                   net_pay: 90000,
                   payslip_documents: [
@@ -294,6 +317,7 @@ describe("payrollDataStore", () => {
                     {
                       id: "email-999",
                       delivery_status: "sent",
+                      recipient_email: "done@company.com",
                     },
                   ],
                 },
@@ -322,7 +346,7 @@ describe("payrollDataStore", () => {
     expect(status?.status).toBe("completed");
   });
 
-  it("6. retryPdf and retryEmail re-attempt failed actions and persist status", async () => {
+  it("6. retryPdf and retryEmail re-attempt failed actions and persist status with real email", async () => {
     vi.mocked(pdfService.generatePayslipPdf).mockResolvedValue(
       "https://storage.local/payslip/retry.pdf"
     );
@@ -362,6 +386,7 @@ describe("payrollDataStore", () => {
                   employee_id: "emp-retry-1",
                   employee_name_snapshot: "Retry User",
                   employee_number_snapshot: "EMP007",
+                  employee_email_snapshot: "retry.user@company.com",
                   gross_pay: 50000,
                   net_pay: 45000,
                   payslip_documents: [],
@@ -417,6 +442,7 @@ describe("payrollDataStore", () => {
                   employee_id: "emp-retry-1",
                   employee_name_snapshot: "Retry User",
                   employee_number_snapshot: "EMP007",
+                  employee_email_snapshot: "retry.user@company.com",
                   gross_pay: 50000,
                   net_pay: 45000,
                   payslip_documents: [
@@ -434,6 +460,16 @@ describe("payrollDataStore", () => {
             update: updateItemMock,
           };
         }
+        if (table === "employees") {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: { email: "retry.user@company.com" },
+              error: null,
+            }),
+          };
+        }
         if (table === "payslip_documents") {
           return { upsert: upsertDocMock };
         }
@@ -449,8 +485,14 @@ describe("payrollDataStore", () => {
       "emp-retry-1",
       "Retry User",
       "EMP007",
-      "payslips/EMP007_2026-06.pdf"
+      "payslips/EMP007_2026-06.pdf",
+      "retry.user@company.com",
+      expect.anything()
     );
-    expect(insertEmailMock).toHaveBeenCalled();
+    expect(insertEmailMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recipient_email: "retry.user@company.com",
+      })
+    );
   });
 });

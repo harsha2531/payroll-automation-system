@@ -1,16 +1,11 @@
 // src/lib/brevoEmailService.ts
 /**
- * Simple Brevo (formerly Sendinblue) email integration for sending a payslip PDF.
- * This module exports a function that the payroll processing job calls.
- *
- * It expects the following environment variables to be defined:
- *   BREVO_API_KEY – your Brevo transactional API key.
- *   NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY – used only if you
- *   need to look up the employee's real email from Supabase. For the demo we
- *   construct a deterministic email address from the employeeNumber.
+ * Brevo email integration for sending a payslip PDF.
+ * Uses the employee's actual email address from the Supabase employees table.
  */
 
 import { BrevoClient } from "@getbrevo/brevo";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 const BREVO_API_KEY = process.env.BREVO_API_KEY ?? "";
 if (!BREVO_API_KEY) {
@@ -19,22 +14,66 @@ if (!BREVO_API_KEY) {
 
 const brevo = new BrevoClient({ apiKey: BREVO_API_KEY });
 
+async function getSupabaseClient(client?: SupabaseClient | unknown): Promise<SupabaseClient> {
+  if (client) return client as SupabaseClient;
+  try {
+    const { createAdminClient } = await import("@/lib/supabase/server");
+    return createAdminClient() as unknown as SupabaseClient;
+  } catch {
+    const { createClient } = await import("@supabase/supabase-js");
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+    const key =
+      process.env.SUPABASE_SERVICE_ROLE_KEY ||
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+      "";
+    return createClient(url, key);
+  }
+}
+
 /**
  * Send a payslip PDF to the employee via Brevo.
- * @param employeeId   The payroll row identifier (used only for logging).
- * @param employeeName Human‑readable name for the email greeting.
- * @param employeeNumber Employee number – used here to synthesize an email address.
- * @param pdfUrl       Signed URL to the generated PDF.
- * @returns           The Brevo messageId for tracking.
+ * Fetches the actual email address from Supabase `employees` table if not provided.
+ *
+ * @param employeeId     The employee ID (used to query employees table).
+ * @param employeeName   Human‑readable name for the email greeting.
+ * @param employeeNumber Employee number shown on payslip attachment.
+ * @param pdfUrl         Signed URL to the generated PDF.
+ * @param recipientEmail Optional explicit recipient email from snapshot/database.
+ * @param client         Optional Supabase client instance (for testing or reuse).
+ * @returns             The Brevo messageId for tracking.
  */
 export async function sendPayslipEmail(
   employeeId: string,
   employeeName: string,
   employeeNumber: string,
   pdfUrl: string,
+  recipientEmail?: string | null,
+  client?: SupabaseClient | unknown,
 ): Promise<string> {
-  // In a real system you would query the Users table for the actual address.
-  const toEmail = `${employeeNumber}@example.com`;
+  let toEmail = recipientEmail?.trim();
+
+  // If email is not passed directly, look up the actual email from Supabase employees table
+  if (!toEmail) {
+    const supabase = await getSupabaseClient(client);
+    const { data: emp, error } = await supabase
+      .from("employees")
+      .select("email")
+      .eq("id", employeeId)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(`Failed to fetch email for employee ${employeeId}: ${error.message}`);
+    }
+
+    toEmail = emp?.email?.trim();
+  }
+
+  if (!toEmail) {
+    throw new Error(
+      `No email address found in database for employee ${employeeName} (Number: ${employeeNumber}, ID: ${employeeId})`
+    );
+  }
 
   const response = await brevo.transactionalEmails.sendTransacEmail({
     sender: { name: "Startup Solutions (Pvt)Ltd", email: "harshanimeda@gmail.com" },
@@ -50,4 +89,3 @@ export async function sendPayslipEmail(
   // Brevo returns an object with an error field when something goes wrong.
   throw new Error(`Brevo email failed: ${JSON.stringify(response)}`);
 }
-

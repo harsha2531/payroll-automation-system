@@ -28,36 +28,44 @@ interface RawPayrollItem {
   deductions_breakdown?: Record<string, unknown> | null;
   calculation_metadata?: Record<string, unknown> | null;
   error_message?: string | null;
+  employees?:
+    | {
+        email?: string | null;
+      }
+    | {
+        email?: string | null;
+      }[]
+    | null;
   payslip_documents?:
-  | {
-    id?: string;
-    storage_path?: string;
-    storage_bucket?: string;
-    status?: string;
-    error_message?: string | null;
-  }[]
-  | {
-    id?: string;
-    storage_path?: string;
-    storage_bucket?: string;
-    status?: string;
-    error_message?: string | null;
-  }
-  | null;
+    | {
+        id?: string;
+        storage_path?: string;
+        storage_bucket?: string;
+        status?: string;
+        error_message?: string | null;
+      }[]
+    | {
+        id?: string;
+        storage_path?: string;
+        storage_bucket?: string;
+        status?: string;
+        error_message?: string | null;
+      }
+    | null;
   email_deliveries?:
-  | {
-    id?: string;
-    delivery_status?: string;
-    recipient_email?: string;
-    error_message?: string | null;
-  }[]
-  | {
-    id?: string;
-    delivery_status?: string;
-    recipient_email?: string;
-    error_message?: string | null;
-  }
-  | null;
+    | {
+        id?: string;
+        delivery_status?: string;
+        recipient_email?: string;
+        error_message?: string | null;
+      }[]
+    | {
+        id?: string;
+        delivery_status?: string;
+        recipient_email?: string;
+        error_message?: string | null;
+      }
+    | null;
 }
 
 // In-memory cache / fallback store (primarily for unit tests and local mutations).
@@ -136,7 +144,7 @@ export async function getPayrollRows(
   const runIds = ((runs || []) as { id: string }[]).map((r) => r.id);
 
   if (runIds.length > 0) {
-    // 2. Query payroll items by payroll_run_id
+    // 2. Query payroll items by payroll_run_id with employee email from employees table
     const { data, error: itemsError } = await supabase
       .from("payroll_items")
       .select(`
@@ -146,6 +154,9 @@ export async function getPayrollRows(
         employee_name_snapshot,
         employee_number_snapshot,
         employee_email_snapshot,
+        employees (
+          email
+        ),
         department_snapshot,
         designation_snapshot,
         basic_salary,
@@ -190,6 +201,9 @@ export async function getPayrollRows(
         employee_name_snapshot,
         employee_number_snapshot,
         employee_email_snapshot,
+        employees (
+          email
+        ),
         department_snapshot,
         designation_snapshot,
         basic_salary,
@@ -293,13 +307,18 @@ export async function getPayrollRows(
       const errorMessage =
         r.error_message || email?.error_message || doc?.error_message || null;
 
+      // Extract real email from Supabase employees relation or snapshot
+      const empData = Array.isArray(r.employees) ? r.employees[0] : r.employees;
+      const employeeEmail =
+        empData?.email?.trim() || r.employee_email_snapshot?.trim() || null;
+
       const row: PayrollRow = {
         payrollItemId: r.id,
         payrollRunId: r.payroll_run_id,
         employeeId: r.employee_id,
         employeeName: r.employee_name_snapshot ?? "",
         employeeNumber: r.employee_number_snapshot ?? "",
-        employeeEmail: r.employee_email_snapshot ?? null,
+        employeeEmail,
         department: r.department_snapshot ?? null,
         designation: r.designation_snapshot ?? null,
         grossPay: Number(r.gross_pay ?? 0),
@@ -460,11 +479,31 @@ export function startProcessing(
               throw new Error("Cannot send email: Payslip PDF is not available.");
             }
 
+            // Ensure we have the actual email from Supabase employees table
+            if (!row.employeeEmail && row.employeeId) {
+              const { data: emp } = await supabase
+                .from("employees")
+                .select("email")
+                .eq("id", row.employeeId)
+                .maybeSingle();
+              if (emp?.email) {
+                row.employeeEmail = emp.email.trim();
+              }
+            }
+
+            if (!row.employeeEmail) {
+              throw new Error(
+                `Cannot send email: No valid email address found in employees table for ${row.employeeName} (${row.employeeNumber}).`
+              );
+            }
+
             const messageId = await sendPayslipEmail(
               row.employeeId,
               row.employeeName,
               row.employeeNumber,
-              pdfUrl
+              pdfUrl,
+              row.employeeEmail,
+              supabase
             );
 
             row.emailStatus = "sent";
@@ -474,8 +513,7 @@ export function startProcessing(
             if (row.payrollItemId) {
               await supabase.from("email_deliveries").insert({
                 payroll_item_id: row.payrollItemId,
-                recipient_email:
-                  row.employeeEmail || `${row.employeeNumber}@example.com`,
+                recipient_email: row.employeeEmail,
                 recipient_name: row.employeeName,
                 delivery_status: "sent",
                 provider: "brevo",
@@ -518,11 +556,10 @@ export function startProcessing(
                 },
                 { onConflict: "payroll_item_id" }
               );
-            } else {
+            } else if (row.employeeEmail) {
               await supabase.from("email_deliveries").insert({
                 payroll_item_id: row.payrollItemId,
-                recipient_email:
-                  row.employeeEmail || `${row.employeeNumber}@example.com`,
+                recipient_email: row.employeeEmail,
                 recipient_name: row.employeeName,
                 delivery_status: "failed",
                 provider: "brevo",
@@ -655,12 +692,32 @@ export async function retryEmail(
     throw new Error("Cannot send email: Payslip PDF is not generated yet.");
   }
 
+  // Ensure we have the actual email from Supabase employees table
+  if (!targetRow.employeeEmail && targetRow.employeeId) {
+    const { data: emp } = await supabase
+      .from("employees")
+      .select("email")
+      .eq("id", targetRow.employeeId)
+      .maybeSingle();
+    if (emp?.email) {
+      targetRow.employeeEmail = emp.email.trim();
+    }
+  }
+
+  if (!targetRow.employeeEmail) {
+    throw new Error(
+      `Cannot send email: No valid email address found in employees table for ${targetRow.employeeName} (${targetRow.employeeNumber}).`
+    );
+  }
+
   try {
     const messageId = await sendPayslipEmail(
       targetRow.employeeId,
       targetRow.employeeName,
       targetRow.employeeNumber,
-      targetRow.payslipUrl
+      targetRow.payslipUrl,
+      targetRow.employeeEmail,
+      supabase
     );
 
     targetRow.emailStatus = "sent";
@@ -670,8 +727,7 @@ export async function retryEmail(
     if (targetRow.payrollItemId) {
       await supabase.from("email_deliveries").insert({
         payroll_item_id: targetRow.payrollItemId,
-        recipient_email:
-          targetRow.employeeEmail || `${targetRow.employeeNumber}@example.com`,
+        recipient_email: targetRow.employeeEmail,
         recipient_name: targetRow.employeeName,
         delivery_status: "sent",
         provider: "brevo",
@@ -690,11 +746,10 @@ export async function retryEmail(
     targetRow.payslipStatus = "failed";
     targetRow.errorMessage = (e as Error).message;
 
-    if (targetRow.payrollItemId) {
+    if (targetRow.payrollItemId && targetRow.employeeEmail) {
       await supabase.from("email_deliveries").insert({
         payroll_item_id: targetRow.payrollItemId,
-        recipient_email:
-          targetRow.employeeEmail || `${targetRow.employeeNumber}@example.com`,
+        recipient_email: targetRow.employeeEmail,
         recipient_name: targetRow.employeeName,
         delivery_status: "failed",
         provider: "brevo",
