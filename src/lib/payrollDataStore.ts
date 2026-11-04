@@ -29,43 +29,43 @@ interface RawPayrollItem {
   calculation_metadata?: Record<string, unknown> | null;
   error_message?: string | null;
   employees?:
-    | {
-        email?: string | null;
-      }
-    | {
-        email?: string | null;
-      }[]
-    | null;
+  | {
+    email?: string | null;
+  }
+  | {
+    email?: string | null;
+  }[]
+  | null;
   payslip_documents?:
-    | {
-        id?: string;
-        storage_path?: string;
-        storage_bucket?: string;
-        status?: string;
-        error_message?: string | null;
-      }[]
-    | {
-        id?: string;
-        storage_path?: string;
-        storage_bucket?: string;
-        status?: string;
-        error_message?: string | null;
-      }
-    | null;
+  | {
+    id?: string;
+    storage_path?: string;
+    storage_bucket?: string;
+    status?: string;
+    error_message?: string | null;
+  }[]
+  | {
+    id?: string;
+    storage_path?: string;
+    storage_bucket?: string;
+    status?: string;
+    error_message?: string | null;
+  }
+  | null;
   email_deliveries?:
-    | {
-        id?: string;
-        delivery_status?: string;
-        recipient_email?: string;
-        error_message?: string | null;
-      }[]
-    | {
-        id?: string;
-        delivery_status?: string;
-        recipient_email?: string;
-        error_message?: string | null;
-      }
-    | null;
+  | {
+    id?: string;
+    delivery_status?: string;
+    recipient_email?: string;
+    error_message?: string | null;
+  }[]
+  | {
+    id?: string;
+    delivery_status?: string;
+    recipient_email?: string;
+    error_message?: string | null;
+  }
+  | null;
 }
 
 // In-memory cache / fallback store (primarily for unit tests and local mutations).
