@@ -6,6 +6,14 @@
 
 import { BrevoClient } from "@getbrevo/brevo";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { getPayrollRows } from "./payrollDataStore";
+
+// Load environment variables (e.g., via `dotenv` at app entry).
+// The sender email used by Brevo must be configured in the environment.
+const BREVO_SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL ?? "";
+if (!BREVO_SENDER_EMAIL) {
+  console.warn('BREVO_SENDER_EMAIL not set – email sending may fail.');
+}
 
 
 const BREVO_API_KEY = process.env.BREVO_API_KEY ?? "";
@@ -89,16 +97,16 @@ export async function sendPayslipEmail(
   }
 
   const response = await brevo.transactionalEmails.sendTransacEmail({
-    sender: { name: "Startup Solutions (Pvt)Ltd", email: "[EMAIL_ADDRESS]" },
+    sender: { name: "Startup Solutions (Pvt)Ltd", email: BREVO_SENDER_EMAIL },
     to: [{ email: toEmail, name: employeeName }],
     subject: "Your Monthly Payslip",
     htmlContent: `<p>Dear ${employeeName},</p><p>Please find attached your payslip for ${period}.</p>
-                  <br><br>
+                  <br>
                   <p>
-                  Regards,
-                  HR Department,
-                  Startup Solutions (Pvt)Ltd,
-                  No.18, Ekwatta Road, Mirihana, Nugegoda,
+                  Regards,<br>
+                  HR Department,<br>
+                  Startup Solutions (Pvt)Ltd,<br>
+                  No.18, Ekwatta Road, Mirihana, Nugegoda,<br>
                   Sri Lanka.
                   </p>
     `,
