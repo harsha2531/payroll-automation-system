@@ -18,48 +18,55 @@ function sanitizeFilename(name: string): string {
   return name.replace(/[^a-zA-Z0-9-_]/g, "-");
 }
 
+/** Convert month number (1‑12) to English month name */
+function monthName(month: number): string {
+  const date = new Date(2000, month - 1, 1); // year irrelevant
+  return date.toLocaleString("default", { month: "long" });
+}
+
 /** Build HTML for the payslip using stored payroll data. */
 function buildPayslipHtml(
   employee: PayrollRow,
   year: number,
   month: number,
 ): string {
-  const period = `${year}-${month.toString().padStart(2, "0")}`;
-  // The UI already provides the required numeric fields.
+  // Period header with month name
+  const period = `${year} - ${monthName(month)}`;
+
+  // Extract fields directly from employee, falling back to 0 where appropriate
   const {
-    grossPay,
-    netPay,
-    // Assuming the UI extensions contain these optional fields – fallback to 0.
-    // Types may be extended in the future.
-    // @ts-ignore – extra fields are optional.
+    grossPay = 0,
+    netPay = 0,
     basicSalary = grossPay,
-    // @ts-ignore
     budgetaryAllowance = 0,
-    // @ts-ignore
     travellingAllowance = 0,
-    // @ts-ignore
     inflationAdjustment = 0,
-    // @ts-ignore
     additionalAllowance = 0,
-    // @ts-ignore
-    variablePay = 0,
-    // @ts-ignore
+    variablePay = 0, // can be number or { bonus?: number, overtime?: number }
     noPay = 0,
-    // @ts-ignore
     epfEmployee = 0,
-    // @ts-ignore
-    stampDuty = 0,
-    // @ts-ignore
-    totalDeduction = 0,
-    // @ts-ignore
     epfEmployer = 0,
-    // @ts-ignore
     etfEmployer = 0,
-    // @ts-ignore
+    stampDuty = 0,
+    totalDeduction = 0,
     signatureDate = new Date().toLocaleDateString(),
-    // @ts-ignore
-    signatureName = "Authorized Signatory",
+    signatureName = "Authorized Signature",
   } = employee as any;
+
+  // Determine label and amount for variable pay (bonus / overtime)
+  let variableLabel = "Bonus/Over Time";
+  let variableAmount = 0;
+  if (typeof variablePay === "object" && variablePay !== null) {
+    if (typeof variablePay.bonus === "number" && variablePay.bonus > 0) {
+      variableLabel = "Bonus";
+      variableAmount = variablePay.bonus;
+    } else if (typeof variablePay.overtime === "number" && variablePay.overtime > 0) {
+      variableLabel = "Overtime";
+      variableAmount = variablePay.overtime;
+    }
+  } else if (typeof variablePay === "number") {
+    variableAmount = variablePay;
+  }
 
   const earnings = [
     { label: "Basic Salary", value: basicSalary },
@@ -67,14 +74,16 @@ function buildPayslipHtml(
     { label: "Travelling Allowance", value: travellingAllowance },
     { label: "Inflation Adjustment", value: inflationAdjustment },
     { label: "Additional Allowance", value: additionalAllowance },
-    { label: "Bonus/Over Time (variablePay)", value: variablePay },
+    { label: variableLabel, value: variableAmount },
     { label: "Less : No Pay", value: noPay },
   ];
+
   const deductions = [
     { label: "E.P.F. 8%", value: epfEmployee },
     { label: "Stamp Duty", value: stampDuty },
     { label: "Total Deduction", value: totalDeduction },
   ];
+
   const employerContributions = [
     { label: "E.P.F. 12%", value: epfEmployer },
     { label: "E.T.F. 3%", value: etfEmployer },
@@ -83,27 +92,35 @@ function buildPayslipHtml(
   // Helper to format money as Rs.
   const fmt = (n: number) => `Rs. ${n.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`;
 
+  // HTML template – professional styling and right‑aligned date
   return `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8" />
   <style>
-    body {font-family: Arial, Helvetica, sans-serif; margin: 40px; color: #333;}
-    .header {text-align: center; margin-bottom: 20px;}
-    .header h1 {margin: 0; color: #2c3e50;}
-    .section {margin-top: 20px;}
-    table {width: 100%; border-collapse: collapse; margin-top: 8px;}
-    th, td {border: 1px solid #ddd; padding: 8px; text-align: left;}
-    th {background: #f4f4f4;}
-    .totals {font-weight: bold; background: #fafafa;}
+    body {font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; margin: 20px; color: #2c3e50;}
+    .header {display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #34495e; padding-bottom: 10px; margin-bottom: 20px;}
+    .header .title {text-align: center; flex-grow: 1;}
+    .header .title h1 {margin: 0; font-size: 24px; color: #2c3e50;}
+    .header .title h3 {margin: 4px 0; font-weight: normal; font-size: 16px;}
+    .header .date {font-size: 14px; text-align: right; white-space: nowrap;}
+    .section {margin-top: 15px;}
+    table {width: 100%; border-collapse: collapse;}
+    th, td {border: 1px solid #bdc3c7; padding: 8px; text-align: left;}
+    th {background: #ecf0f1;}
+    .totals {font-weight: bold; background: #f8f9fa;}
     .signature {margin-top: 40px; display: flex; justify-content: flex-end;}
     .signature div {text-align: center;}
   </style>
 </head>
 <body>
   <div class="header">
-    <h1>Company Name Ltd.</h1>
-    <p>Payslip for <strong>${period}</strong></p>
+    <div class="title">
+      <h1>STARTUP SOLUTIONS (PVT) LTD</h1>
+      <h3>No.18, Ekwatta Road, Mirihana, Nugegoda</h3>
+      <p>Payslip for <strong>${period}</strong></p>
+    </div>
+    <div class="date">Date: ${signatureDate}</div>
   </div>
 
   <div class="section">
@@ -116,11 +133,11 @@ function buildPayslipHtml(
   <div class="section">
     <h3>Earnings (Rs.)</h3>
     <table>
-      <thead><tr><th>Description</th><th>Amount</th></tr></thead>
+      <thead>
+        <tr><th>Description</th><th>Amount</th></tr>
+      </thead>
       <tbody>
-        ${earnings
-          .map((e) => `<tr><td>${e.label}</td><td>${fmt(e.value)}</td></tr>`)
-          .join("")}
+        ${earnings.map(e => `<tr><td>${e.label}</td><td>${fmt(e.value)}</td></tr>`).join("")}
         <tr class="totals"><td>Gross Salary</td><td>${fmt(grossPay)}</td></tr>
       </tbody>
     </table>
@@ -129,11 +146,11 @@ function buildPayslipHtml(
   <div class="section">
     <h3>Deductions (Rs.)</h3>
     <table>
-      <thead><tr><th>Description</th><th>Amount</th></tr></thead>
+      <thead>
+        <tr><th>Description</th><th>Amount</th></tr>
+      </thead>
       <tbody>
-        ${deductions
-          .map((d) => `<tr><td>${d.label}</td><td>${fmt(d.value)}</td></tr>`)
-          .join("")}
+        ${deductions.map(d => `<tr><td>${d.label}</td><td>${fmt(d.value)}</td></tr>`).join("")}
         <tr class="totals"><td>Total Deduction</td><td>${fmt(totalDeduction)}</td></tr>
       </tbody>
     </table>
@@ -151,20 +168,20 @@ function buildPayslipHtml(
   <div class="section">
     <h3>Employer Contributions (Rs.)</h3>
     <table>
-      <thead><tr><th>Description</th><th>Amount</th></tr></thead>
+      <thead>
+        <tr><th>Description</th><th>Amount</th></tr>
+      </thead>
       <tbody>
-        ${employerContributions
-          .map((c) => `<tr><td>${c.label}</td><td>${fmt(c.value)}</td></tr>`)
-          .join("")}
+        ${employerContributions.map(c => `<tr><td>${c.label}</td><td>${fmt(c.value)}</td></tr>`).join("")}
       </tbody>
     </table>
   </div>
 
   <div class="signature">
     <div>
-      <p>Date: ${signatureDate}</p>
-      <p>Signature: ______________________</p>
       <p>${signatureName}</p>
+      <p>______________________</p>
+      <p>Date: ${signatureDate}</p>
     </div>
   </div>
 </body>
@@ -199,9 +216,7 @@ export async function generatePayslipPdf(
   await browser.close();
 
   // 4. Upload to Supabase Storage (private bucket "payslips").
-  const fileName = `${sanitizeFilename(employee.employeeNumber)}_${year}-${month
-    .toString()
-    .padStart(2, "0")}.pdf`;
+  const fileName = `${sanitizeFilename(employee.employeeNumber)}_${year}-${month.toString().padStart(2, "0")}.pdf`;
   const bucket = "payslips";
   const { data, error } = await supabase.storage.from(bucket).upload(fileName, pdfBuffer, {
     contentType: "application/pdf",
@@ -220,4 +235,3 @@ export async function generatePayslipPdf(
   }
   return signed?.signedUrl ?? data.path; // fallback to path if signed URL generation fails.
 }
-
