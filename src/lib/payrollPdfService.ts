@@ -179,9 +179,11 @@ function buildPayslipHtml(
 
   <div class="signature">
     <div>
-      <p>${signatureName}</p>
-      <p>______________________</p>
       <p>Date: ${signatureDate}</p>
+      <br>
+      <p>______________________</p>
+      <p>${signatureName}</p>
+      
     </div>
   </div>
 </body>

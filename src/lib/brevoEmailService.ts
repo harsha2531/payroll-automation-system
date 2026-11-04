@@ -7,6 +7,7 @@
 import { BrevoClient } from "@getbrevo/brevo";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+
 const BREVO_API_KEY = process.env.BREVO_API_KEY ?? "";
 if (!BREVO_API_KEY) {
   console.warn("BREVO_API_KEY is not set – email sending will fail.");
@@ -43,15 +44,27 @@ async function getSupabaseClient(client?: SupabaseClient | unknown): Promise<Sup
  * @param client         Optional Supabase client instance (for testing or reuse).
  * @returns             The Brevo messageId for tracking.
  */
+
+/** Convert month number (1‑12) to English month name */
+function monthName(month: number): string {
+  const date = new Date(2000, month - 1, 1); // year irrelevant
+  return date.toLocaleString("default", { month: "long" });
+}
+
 export async function sendPayslipEmail(
   employeeId: string,
   employeeName: string,
   employeeNumber: string,
   pdfUrl: string,
+  month: number,
+  year: number,
   recipientEmail?: string | null,
   client?: SupabaseClient | unknown,
 ): Promise<string> {
   let toEmail = recipientEmail?.trim();
+
+  // Period header with month name
+  const period = `${year} - ${monthName(month)}`;
 
   // If email is not passed directly, look up the actual email from Supabase employees table
   if (!toEmail) {
@@ -76,10 +89,19 @@ export async function sendPayslipEmail(
   }
 
   const response = await brevo.transactionalEmails.sendTransacEmail({
-    sender: { name: "Startup Solutions (Pvt)Ltd", email: "harshanimeda@gmail.com" },
+    sender: { name: "Startup Solutions (Pvt)Ltd", email: "[EMAIL_ADDRESS]" },
     to: [{ email: toEmail, name: employeeName }],
     subject: "Your Monthly Payslip",
-    htmlContent: `<p>Dear ${employeeName},</p><p>Please find attached your payslip for the selected period.</p>`,
+    htmlContent: `<p>Dear ${employeeName},</p><p>Please find attached your payslip for ${period}.</p>
+                  <br><br>
+                  <p>
+                  Regards,
+                  HR Department,
+                  Startup Solutions (Pvt)Ltd,
+                  No.18, Ekwatta Road, Mirihana, Nugegoda,
+                  Sri Lanka.
+                  </p>
+    `,
     attachment: [{ url: pdfUrl, name: `Payslip_${employeeNumber}.pdf` }],
   });
 
