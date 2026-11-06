@@ -38,4 +38,20 @@ export interface PayrollRow {
   pdfStatus?: "pending" | "generated" | "failed";
   /** Optional detailed email delivery status */
   emailStatus?: "pending" | "sent" | "failed";
+  // Additional fields derived from database JSON columns
+  /** Basic salary (may be duplicated from grossPay) */
+  basicSalary?: number;
+  /** Allowances total (legacy field) */
+  allowances?: number;
+  /** Total deductions (legacy) */
+  totalDeduction?: number;
+  /** Employer EPF contribution (12%) */
+  epfEmployer?: number;
+  /** Employer ETF contribution (3%) */
+  etfEmployer?: number;
+  /** Full earnings breakdown JSON */
+  earnings_breakdown?: Record<string, any>;
+  /** Full deductions breakdown JSON */
+  deductions_breakdown?: Record<string, any>;
+
 }

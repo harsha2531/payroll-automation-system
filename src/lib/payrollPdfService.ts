@@ -40,7 +40,6 @@ function buildPayslipHtml(
     signatureDate = new Date().toLocaleDateString(),
     signatureName = "Authorized Signature",
     variablePay: variablePayRaw = 0,
-    noPay = 0,
   } = employee as any;
 
   // Merge breakdown JSON fields if they exist
@@ -55,10 +54,24 @@ function buildPayslipHtml(
   const additionalAllowance = Number(allowancesObj["Additional Allowance"] ?? 0);
   const basicSalary = Number(earningsBreakdown.basicSalary ?? grossPay);
 
-  // Variable pay handling – could be number or object with label/amount
-  const variablePay = typeof variablePayRaw === "object" && variablePayRaw !== null
+  // Variable pay handling – expect object { label: string, amount: number }
+  const variablePayObj = typeof variablePayRaw === "object" && variablePayRaw !== null
     ? variablePayRaw
-    : variablePayRaw;
+    : null;
+  let variableLabel = "";
+  let variableAmount = 0;
+  if (variablePayObj && typeof variablePayObj.amount === "number" && variablePayObj.amount > 0) {
+    const label = String(variablePayObj.label || "").toLowerCase();
+    if (label.includes("bonus")) {
+      variableLabel = "Bonus";
+    } else if (label.includes("overtime")) {
+      variableLabel = "Overtime";
+    } else {
+      // Preserve actual label if it's not Bonus or Overtime
+      variableLabel = variablePayObj.label;
+    }
+    variableAmount = variablePayObj.amount;
+  }
 
   // Deductions extraction
   const employeeDeds = deductionsBreakdown.employeeDeductions || {};
@@ -66,23 +79,10 @@ function buildPayslipHtml(
   const stampDuty = Number(employeeDeds["Stamp Duty"] ?? 0);
   const totalDeduction = Number(employeeDeds.total ?? 0);
   const employerContribs = deductionsBreakdown.employerContributions || {};
-  const epfEmployer = Number(employerContribs.etf12 ?? 0);
+  const epfEmployer = Number(employerContribs.epf12 ?? 0);
   const etfEmployer = Number(employerContribs.etf3 ?? 0);
 
-  // Determine label and amount for variable pay (bonus / overtime)
-  let variableLabel = "Bonus/Over Time";
-  let variableAmount = 0;
-  if (typeof variablePay === "object" && variablePay !== null) {
-    if (typeof variablePay.bonus === "number" && variablePay.bonus > 0) {
-      variableLabel = "Bonus";
-      variableAmount = variablePay.bonus;
-    } else if (typeof variablePay.overtime === "number" && variablePay.overtime > 0) {
-      variableLabel = "Overtime";
-      variableAmount = variablePay.overtime;
-    }
-  } else if (typeof variablePay === "number") {
-    variableAmount = variablePay;
-  }
+
 
   const earnings = [
     { label: "Basic Salary", value: basicSalary },
@@ -90,14 +90,19 @@ function buildPayslipHtml(
     { label: "Travelling Allowance", value: travellingAllowance },
     { label: "Inflation Adjustment", value: inflationAdjustment },
     { label: "Additional Allowance", value: additionalAllowance },
-    { label: variableLabel, value: variableAmount },
-    { label: "Less : No Pay", value: noPay },
+    // variableLabel may be empty if no applicable variable pay
+    ...(variableLabel && variableAmount > 0 ? [{ label: variableLabel, value: variableAmount }] : []),
+    { label: "Less : No Pay", value: lessNoPay },
   ];
+
+  // Remove any rows with zero amount (except Basic Salary which may be zero?)
+  const earningsRows = earnings.filter(e => e.value !== 0 || e.label === "Basic Salary");
+
 
   const deductions = [
     { label: "E.P.F. 8%", value: epfEmployee },
     { label: "Stamp Duty", value: stampDuty },
-    { label: "Total Deduction", value: totalDeduction },
+    // Total Deduction will be displayed in the totals row below, not duplicated here
   ];
 
   const employerContributions = [
@@ -153,7 +158,7 @@ function buildPayslipHtml(
         <tr><th>Description</th><th>Amount</th></tr>
       </thead>
       <tbody>
-        ${earnings.map(e => `<tr><td>${e.label}</td><td>${fmt(e.value)}</td></tr>`).join("")}
+        ${earningsRows.map(e => `<tr><td>${e.label}</td><td>${fmt(e.value)}</td></tr>`).join("")}
         <tr class="totals"><td>Gross Salary</td><td>${fmt(grossPay)}</td></tr>
       </tbody>
     </table>
