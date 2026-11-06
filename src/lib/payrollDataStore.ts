@@ -502,6 +502,8 @@ export function startProcessing(
               row.employeeName,
               row.employeeNumber,
               pdfUrl,
+              month,
+              year,
               row.employeeEmail,
               supabase
             );
@@ -716,6 +718,7 @@ export async function retryEmail(
       targetRow.employeeName,
       targetRow.employeeNumber,
       targetRow.payslipUrl,
+      month, year,
       targetRow.employeeEmail,
       supabase
     );

@@ -66,7 +66,7 @@ export async function sendPayslipEmail(
   pdfUrl: string,
   month: number,
   year: number,
-  recipientEmail?: string | null,
+  recipientEmail: string,
   client?: SupabaseClient | unknown,
 ): Promise<string> {
   let toEmail = recipientEmail?.trim();
