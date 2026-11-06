@@ -33,25 +33,41 @@ function buildPayslipHtml(
   // Period header with month name
   const period = `${year} - ${monthName(month)}`;
 
-  // Extract fields directly from employee, falling back to 0 where appropriate
+  // Extract core fields directly from employee
   const {
     grossPay = 0,
     netPay = 0,
-    basicSalary = grossPay,
-    budgetaryAllowance = 0,
-    travellingAllowance = 0,
-    inflationAdjustment = 0,
-    additionalAllowance = 0,
-    variablePay = 0, // can be number or { bonus?: number, overtime?: number }
-    noPay = 0,
-    epfEmployee = 0,
-    epfEmployer = 0,
-    etfEmployer = 0,
-    stampDuty = 0,
-    totalDeduction = 0,
     signatureDate = new Date().toLocaleDateString(),
     signatureName = "Authorized Signature",
+    variablePay: variablePayRaw = 0,
+    noPay = 0,
   } = employee as any;
+
+  // Merge breakdown JSON fields if they exist
+  const earningsBreakdown = (employee as any).earnings_breakdown || {};
+  const deductionsBreakdown = (employee as any).deductions_breakdown || {};
+
+  // Allowances extraction
+  const allowancesObj = earningsBreakdown.allowances || {};
+  const budgetaryAllowance = Number(allowancesObj["Budgetary Allowance"] ?? 0);
+  const travellingAllowance = Number(allowancesObj["Travelling Allowance"] ?? 0);
+  const inflationAdjustment = Number(allowancesObj["Inflation Adjustment"] ?? 0);
+  const additionalAllowance = Number(allowancesObj["Additional Allowance"] ?? 0);
+  const basicSalary = Number(earningsBreakdown.basicSalary ?? grossPay);
+
+  // Variable pay handling – could be number or object with label/amount
+  const variablePay = typeof variablePayRaw === "object" && variablePayRaw !== null
+    ? variablePayRaw
+    : variablePayRaw;
+
+  // Deductions extraction
+  const employeeDeds = deductionsBreakdown.employeeDeductions || {};
+  const epfEmployee = Number(employeeDeds["E.P.F. 8%"] ?? 0);
+  const stampDuty = Number(employeeDeds["Stamp Duty"] ?? 0);
+  const totalDeduction = Number(employeeDeds.total ?? 0);
+  const employerContribs = deductionsBreakdown.employerContributions || {};
+  const epfEmployer = Number(employerContribs.etf12 ?? 0);
+  const etfEmployer = Number(employerContribs.etf3 ?? 0);
 
   // Determine label and amount for variable pay (bonus / overtime)
   let variableLabel = "Bonus/Over Time";
