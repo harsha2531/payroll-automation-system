@@ -9,10 +9,12 @@ import { PayrollRow } from "@/types/payroll-ui";
 import { getPayrollRows } from "./payrollDataStore";
 import { PayrollRecord } from "@/services/payroll-parser";
 
-// Initialise Supabase client (service role key for privileged storage access)
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? ""; // must be set in env
-const supabase = createClient(supabaseUrl, supabaseKey);
+// Helper to obtain Supabase client with privileged service role key
+function getSupabaseClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
+  return createClient(supabaseUrl, supabaseKey);
+}
 
 /** Simple filename sanitiser – removes characters unsafe for URLs/files. */
 function sanitizeFilename(name: string): string {
@@ -26,7 +28,7 @@ function monthName(month: number): string {
 }
 
 /** Build HTML for the payslip using stored payroll data. */
-function buildPayslipHtml(
+export function buildPayslipHtml(
   employee: PayrollRecord,
   year: number,
   month: number,
@@ -38,7 +40,6 @@ function buildPayslipHtml(
     grossPay = 0,
     netPay = 0,
     signatureDate = new Date().toLocaleDateString(),
-    signatureName = "Authorized Signature",
     variablePay: variablePayRaw = 0,
   } = employee as any;
 
@@ -53,9 +54,7 @@ function buildPayslipHtml(
   const additionalAllowance = Number(earningsBreakdown["Additional Allowance"] ?? 0);
   const basicSalary = Number(employee.basicSalary ?? 0);
 
-
   // Variable pay handling – expect object { label: string, amount: number }
-
   const variablePayObj =
     typeof variablePayRaw === "object" && variablePayRaw !== null
       ? variablePayRaw
@@ -87,7 +86,6 @@ function buildPayslipHtml(
         : 0;
   }
 
-
   // Deductions extraction
   const lessNoPay = Number(deductionsBreakdown["Less : No Pay"] ?? 0);
   const epfEmployee = Number(deductionsBreakdown["E.P.F. 8%"] ?? 0);
@@ -98,8 +96,6 @@ function buildPayslipHtml(
 
   const epfEmployer = Number(employerContribs["epf12"] ?? 0);
   const etfEmployer = Number(employerContribs["etf3"] ?? 0);
-
-
 
   const earnings = [
     { label: "Basic Salary", value: basicSalary },
@@ -112,9 +108,10 @@ function buildPayslipHtml(
     { label: "Less : No Pay", value: lessNoPay },
   ];
 
-  // Remove any rows with zero amount (except Basic Salary which may be zero?)
-  const earningsRows = earnings.filter(e => e.value !== 0 || e.label === "Basic Salary");
-
+  // Remove any rows with zero amount (except Basic Salary or variable pay with a label)
+  const earningsRows = earnings.filter(
+    (e) => e.value !== 0 || e.label === "Basic Salary" || (variableLabel && e.label === variableLabel)
+  );
 
   const deductions = [
     { label: "E.P.F. 8%", value: epfEmployee },
@@ -130,98 +127,288 @@ function buildPayslipHtml(
   // Helper to format money as Rs.
   const fmt = (n: number) => `Rs. ${n.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`;
 
-  // HTML template – professional styling and right‑aligned date
+  // HTML template – compact, professional A4 styling fitting neatly on one page
   return `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8" />
   <style>
-    body {font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; margin: 20px; color: #2c3e50;}
-    .header {display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #34495e; padding-bottom: 10px; margin-bottom: 20px;}
-    .header .title {text-align: center; flex-grow: 1;}
-    .header .title h1 {margin: 0; font-size: 24px; color: #2c3e50;}
-    .header .title h3 {margin: 4px 0; font-weight: normal; font-size: 16px;}
-    .header .date {font-size: 14px; text-align: right; white-space: nowrap;}
-    .section {margin-top: 15px;}
-    table {width: 100%; border-collapse: collapse;}
-    th, td {border: 1px solid #bdc3c7; padding: 8px; text-align: left;}
-    th {background: #ecf0f1;}
-    .totals {font-weight: bold; background: #f8f9fa;}
-    .signature {margin-top: 40px; display: flex; justify-content: flex-end;}
-    .signature div {text-align: center;}
+    @page {
+      size: A4 portrait;
+      margin: 10mm 15mm;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      color: #1e293b;
+      margin: 0;
+      padding: 0;
+      font-size: 12.5px;
+      line-height: 1.35;
+      background: #ffffff;
+      -webkit-font-smoothing: antialiased;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 2px solid #0f172a;
+      padding-bottom: 6px;
+      margin-bottom: 10px;
+    }
+    .company-title {
+      font-size: 19px;
+      font-weight: 700;
+      color: #0f172a;
+      letter-spacing: 0.5px;
+      line-height: 1.2;
+    }
+    .company-sub {
+      margin-top: 2px;
+      font-size: 11.5px;
+      color: #64748b;
+    }
+    .header-right {
+      text-align: right;
+    }
+    .payslip-badge {
+      font-size: 16px;
+      font-weight: 700;
+      color: #0f172a;
+      letter-spacing: 0.8px;
+      line-height: 1.2;
+    }
+    .period-text {
+      font-size: 12.5px;
+      font-weight: 600;
+      color: #334155;
+      margin-top: 1px;
+    }
+    .date-text {
+      font-size: 11.5px;
+      color: #64748b;
+      margin-top: 1px;
+    }
+
+    .employee-card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 4px;
+      padding: 6px 12px;
+      margin-bottom: 10px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3px 16px;
+      font-size: 12px;
+    }
+    .info-label {
+      color: #64748b;
+      font-weight: 500;
+      margin-right: 6px;
+    }
+    .info-value {
+      color: #0f172a;
+      font-weight: 600;
+    }
+
+    .section {
+      margin-bottom: 8px;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    .section-title {
+      font-size: 11.5px;
+      font-weight: 700;
+      color: #0f172a;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 3px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    tr {
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    thead {
+      display: table-header-group;
+    }
+    tfoot {
+      display: table-footer-group;
+    }
+    th, td {
+      border: 1px solid #cbd5e1;
+      padding: 4.5px 8px;
+      text-align: left;
+      font-size: 12px;
+    }
+    th {
+      background-color: #f1f5f9;
+      font-weight: 600;
+      color: #334155;
+    }
+    .amount-col {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      width: 140px;
+    }
+    .totals-row {
+      font-weight: 700;
+      background-color: #f8fafc;
+      border-top: 2px solid #94a3b8;
+    }
+
+    .net-salary-card {
+      background: #f1f5f9;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 4px;
+      padding: 6px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    .net-label {
+      font-size: 13px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+    .net-amount {
+      font-size: 15px;
+      font-weight: 700;
+      color: #0f172a;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .disclaimer {
+      font-size: 10.5px;
+      color: #64748b;
+      line-height: 1.35;
+      margin-top: 8px;
+      padding: 5px 8px;
+      background: #f8fafc;
+      border-left: 3px solid #cbd5e1;
+      border-radius: 2px;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+
+    .signature-container {
+      margin-top: 14px;
+      display: flex;
+      justify-content: flex-end;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    .signature-block {
+      text-align: center;
+      min-width: 220px;
+    }
+    .sig-company {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: #334155;
+      margin-bottom: 30px;
+    }
+    .sig-line {
+      border-top: 1px solid #64748b;
+      margin-bottom: 3px;
+    }
+    .sig-name {
+      font-size: 12px;
+      font-weight: 600;
+      color: #0f172a;
+    }
+    .sig-title {
+      font-size: 10.5px;
+      color: #64748b;
+      margin-top: 1px;
+    }
   </style>
 </head>
 <body>
   <div class="header">
-    <div class="title">
-      <h1>STARTUP SOLUTIONS (PVT) LTD</h1>
-      <h3>No.18, Ekwatta Road, Mirihana, Nugegoda</h3>
-      <p>Payslip for <strong>${period}</strong></p>
-    </div>
-    <div class="date">Date: ${signatureDate}</div>
-  </div>
-
-  <div class="section">
-    <strong>Employee:</strong> ${employee.employeeName}<br/>
-    <strong>Employee No:</strong> ${employee.employeeNumber}<br/>
-    <strong>Department:</strong> IT <br/>
-    <strong>Designation:</strong> ${employee.designation ?? "-"}<br/>
-  </div>
-
-  <div class="section">
-    <h3>Earnings (Rs.)</h3>
-    <table>
-      <thead>
-        <tr><th>Description</th><th>Amount</th></tr>
-      </thead>
-      <tbody>
-        ${earningsRows.map(e => `<tr><td>${e.label}</td><td>${fmt(e.value)}</td></tr>`).join("")}
-        <tr class="totals"><td>Gross Salary</td><td>${fmt(grossPay)}</td></tr>
-      </tbody>
-    </table>
-  </div>
-
-  <div class="section">
-    <h3>Deductions (Rs.)</h3>
-    <table>
-      <thead>
-        <tr><th>Description</th><th>Amount</th></tr>
-      </thead>
-      <tbody>
-        ${deductions.map(d => `<tr><td>${d.label}</td><td>${fmt(d.value)}</td></tr>`).join("")}
-        <tr class="totals"><td>Total Deduction</td><td>${fmt(totalDeduction)}</td></tr>
-      </tbody>
-    </table>
-  </div>
-
-  <div class="section">
-    <h3>Net Salary</h3>
-    <table>
-      <tbody>
-        <tr class="totals"><td>Net Salary</td><td>${fmt(netPay)}</td></tr>
-      </tbody>
-    </table>
-  </div>
-
-  <div class="section">
-    <h3>Employer Contributions (Rs.)</h3>
-    <table>
-      <thead>
-        <tr><th>Description</th><th>Amount</th></tr>
-      </thead>
-      <tbody>
-        ${employerContributions.map(c => `<tr><td>${c.label}</td><td>${fmt(c.value)}</td></tr>`).join("")}
-      </tbody>
-    </table>
-  </div>
-
-  <div class="signature">
     <div>
-      <p>Date: ${signatureDate}</p>
-      <br>
-      <p>______________________</p>
-      <p>${signatureName}</p>
-      
+      <h1 class="company-title">STARTUP SOLUTIONS (PVT) LTD</h1>
+      <p class="company-sub">No.18, Ekwatta Road, Mirihana, Nugegoda</p>
+    </div>
+    <div class="header-right">
+      <div class="payslip-badge">PAYSLIP</div>
+      <div class="period-text">${period}</div>
+      <div class="date-text">Date: ${signatureDate}</div>
+    </div>
+  </div>
+
+  <div class="employee-card">
+    <div><span class="info-label">Employee Name:</span><span class="info-value">${employee.employeeName}</span></div>
+    <div><span class="info-label">Designation:</span><span class="info-value">${employee.designation ?? "-"}</span></div>
+    <div><span class="info-label">Employee No:</span><span class="info-value">${employee.employeeNumber}</span></div>
+    <div><span class="info-label">Department:</span><span class="info-value">IT</span></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Earnings (Rs.)</div>
+    <table>
+      <thead>
+        <tr><th>Description</th><th class="amount-col">Amount</th></tr>
+      </thead>
+      <tbody>
+        ${earningsRows.map((e) => `<tr><td>${e.label}</td><td class="amount-col">${fmt(e.value)}</td></tr>`).join("")}
+        <tr class="totals-row"><td>Gross Salary</td><td class="amount-col">${fmt(grossPay)}</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Deductions (Rs.)</div>
+    <table>
+      <thead>
+        <tr><th>Description</th><th class="amount-col">Amount</th></tr>
+      </thead>
+      <tbody>
+        ${deductions.map((d) => `<tr><td>${d.label}</td><td class="amount-col">${fmt(d.value)}</td></tr>`).join("")}
+        <tr class="totals-row"><td>Total Deduction</td><td class="amount-col">${fmt(totalDeduction)}</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="net-salary-card">
+    <span class="net-label">Net Salary</span>
+    <span class="net-amount">${fmt(netPay)}</span>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Employer Contributions (Rs.)</div>
+    <table>
+      <thead>
+        <tr><th>Description</th><th class="amount-col">Amount</th></tr>
+      </thead>
+      <tbody>
+        ${employerContributions.map((c) => `<tr><td>${c.label}</td><td class="amount-col">${fmt(c.value)}</td></tr>`).join("")}
+      </tbody>
+    </table>
+  </div>
+
+  <p class="disclaimer">
+    "This payslip serves as an official record of earnings and deductions for the specified period. Any discrepancies must be reported to the HR &amp; Payroll department within 7 business days."
+  </p>
+
+  <div class="signature-container">
+    <div class="signature-block">
+      <p class="sig-company">For Startup Solutions (PVT) LTD</p>
+      <div class="sig-line"></div>
+      <p class="sig-name">Mr. Chandana Perera</p>
+      <p class="sig-title">Managing Director</p>
     </div>
   </div>
 </body>
@@ -252,10 +439,15 @@ export async function generatePayslipPdf(
   const context = await browser.newContext();
   const page = await context.newPage();
   await page.setContent(html, { waitUntil: "networkidle" });
-  const pdfBuffer = await page.pdf({ format: "A4", printBackground: true, margin: { top: "20px", bottom: "20px", left: "20px", right: "20px" } });
+  const pdfBuffer = await page.pdf({
+    format: "A4",
+    printBackground: true,
+    margin: { top: "10mm", bottom: "10mm", left: "15mm", right: "15mm" },
+  });
   await browser.close();
 
   // 4. Upload to Supabase Storage (private bucket "payslips").
+  const supabase = getSupabaseClient();
   const fileName = `${sanitizeFilename(employee.employeeNumber)}_${year}-${month.toString().padStart(2, "0")}.pdf`;
   const bucket = "payslips";
   const { data, error } = await supabase.storage.from(bucket).upload(fileName, pdfBuffer, {
