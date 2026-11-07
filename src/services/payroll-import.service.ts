@@ -85,7 +85,7 @@ function overlayRecord(
     ...record,
     employeeName: correction.employeeName?.trim() || record.employeeName,
     employeeEmail: correction.email?.trim() || record.employeeEmail,
-    epfNumber: correction.epfNumber?.trim() || record.epfNumber,
+    employeeNumber: correction.epfNumber?.trim() || record.employeeNumber,
     designation: correction.designation?.trim() || record.designation,
   };
 }
@@ -94,14 +94,14 @@ function matchEmployee(
   record: PayrollRecord,
   employees: Employee[]
 ): { employee: Employee; identityMatch: ImportPreviewRow["identityMatch"] } | null {
-  const epf = normalizeKey(record.epfNumber);
+  const epf = normalizeKey(record.employeeNumber);
   if (epf) {
     const hits = employees.filter((e) => normalizeKey(e.epfNumber) === epf);
     if (hits.length === 1) return { employee: hits[0], identityMatch: "epf" };
     if (hits.length > 1) return null;
   }
 
-  const numberKey = normalizeKey(record.epfNumber);
+  const numberKey = normalizeKey(record.employeeNumber);
   if (numberKey) {
     const hits = employees.filter(
       (e) => normalizeKey(e.employeeNumber) === numberKey
@@ -299,8 +299,8 @@ export const PayrollImportService = {
       const item = batch.items[index];
       const warnings = item.calculationMetadata.discrepancies ?? [];
 
-      if (record.epfNumber) {
-        const epfKey = normalizeKey(record.epfNumber);
+      if (record.employeeNumber) {
+        const epfKey = normalizeKey(record.employeeNumber);
         const first = seenEpf.get(epfKey);
         if (first) {
           issues.push({
@@ -317,7 +317,7 @@ export const PayrollImportService = {
       }
 
       const match = matchEmployee(record, employees);
-      const epf = normalizeKey(record.epfNumber);
+      const epf = normalizeKey(record.employeeNumber);
       const ambiguous =
         Boolean(epf) &&
         employees.filter((e) => normalizeKey(e.epfNumber) === epf).length > 1;
@@ -355,7 +355,7 @@ export const PayrollImportService = {
         originalEmployeeName: originalName,
         employeeName: record.employeeName || "",
         email: record.employeeEmail || existing?.email || "",
-        epfNumber: record.epfNumber || existing?.epfNumber || "",
+        epfNumber: record.employeeNumber || existing?.epfNumber || "",
         designation: record.designation || existing?.designation || "",
         employeeNumber: item.employeeNumberSnapshot,
         periodLabel: record.payrollMonth || "",
@@ -498,7 +498,7 @@ export const PayrollImportService = {
 
         if (!employeeId) {
           const preferredNumber =
-            (sourceRecord.epfNumber || row.employeeNumber || "").trim() ||
+            (sourceRecord.employeeNumber || row.employeeNumber || "").trim() ||
             `EMP-${String(recordIndex + 1).padStart(3, "0")}`;
           const employeeNumber = await allocateEmployeeNumber(
             supabase,
@@ -513,7 +513,7 @@ export const PayrollImportService = {
             fullName: (sourceRecord.employeeName || row.employeeName).trim(),
             email,
             designation: sourceRecord.designation || row.designation || null,
-            epfNumber: sourceRecord.epfNumber || row.epfNumber || null,
+            epfNumber: sourceRecord.employeeNumber || row.epfNumber || null,
             status: "active",
           });
 
@@ -547,9 +547,9 @@ export const PayrollImportService = {
           if (
             existing &&
             !existing.epfNumber &&
-            (sourceRecord.epfNumber || row.epfNumber)
+            (sourceRecord.employeeNumber || row.epfNumber)
           ) {
-            fill.epfNumber = sourceRecord.epfNumber || row.epfNumber;
+            fill.epfNumber = sourceRecord.employeeNumber || row.epfNumber;
           }
           if (
             existing &&
@@ -572,7 +572,7 @@ export const PayrollImportService = {
             if (sourceRecord.designation) {
               fill.designation = sourceRecord.designation;
             }
-            if (sourceRecord.epfNumber) fill.epfNumber = sourceRecord.epfNumber;
+            if (sourceRecord.employeeNumber) fill.epfNumber = sourceRecord.employeeNumber;
           }
 
           if (Object.keys(fill).length > 0) {

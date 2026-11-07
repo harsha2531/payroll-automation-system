@@ -110,7 +110,7 @@ export function buildPayslipHtml(
 
   // Remove any rows with zero amount (except Basic Salary or variable pay with a label)
   const earningsRows = earnings.filter(
-    (e) => e.value !== 0 || e.label === "Basic Salary" || (variableLabel && e.label === variableLabel)
+    (e) => e.value !== 0 || e.label === "Basic Salary" || (variableLabel && e.label === variableLabel || e.label === "Less : No Pay")
   );
 
   const deductions = [
