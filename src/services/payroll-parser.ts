@@ -13,11 +13,11 @@ export interface PayrollRecord {
   /** Name of the employee (as appears on the sheet) */
   employeeName?: string;
   /** Designation / job title */
-  designation?: string;
+  designation?: string | null;
   /** EPF number if present */
-  epfNumber?: string;
+  employeeNumber?: string;
   /** Employee email if available */
-  employeeEmail?: string;
+  employeeEmail?: string | null;
   /** Payroll month (e.g. "July 2022") */
   payrollMonth?: string;
   /** Payslip date if available */
@@ -129,7 +129,7 @@ export function parsePayrollWorkbook(buffer: Buffer): PayrollRecord[] {
     let companyEmail: string | undefined;
     let employeeName: string | undefined;
     let designation: string | undefined;
-    let epfNumber: string | undefined;
+    let employeeNumber: string | undefined;
     let employeeEmail: string | undefined;
     let payrollMonth: string | undefined;
     let payslipDate: string | undefined;
@@ -201,13 +201,24 @@ export function parsePayrollWorkbook(buffer: Buffer): PayrollRecord[] {
         const epfMatch = txt.match(/^epf\s*(?:no\.?|number)?\s*:\s*(.*)$/i);
         if (epfMatch) {
           const epfVal = epfMatch[1].trim();
-          if (epfVal) epfNumber = epfVal;
+          if (epfVal) employeeNumber = epfVal;
         } else if (/^epf\s*(?:no\.?|number)\b/i.test(txt)) {
           const next = findNextValue(cells, i);
           if (next !== undefined && !/^\d+(?:\.\d+)?$/.test(String(next).trim())) {
-            epfNumber = String(next).trim();
+            employeeNumber = String(next).trim();
           }
         }
+
+        // 2. Employee Email
+        const emailMatch = txt.match(/^email\s*:\s*(.+)$/i);
+        if (emailMatch) {
+            employeeEmail = emailMatch[1].trim();
+        } else if (/^(?:employee\s*)?email\b/i.test(txt) && !employeeEmail) {
+            const next = findNextValue(cells, i);
+          if (next !== undefined && typeof next === "string") {
+            employeeEmail = next.trim();
+  }
+}
 
         // 4. Payroll Month
         const monthMatch = txt.match(/^(?:payroll\s*)?month\s*:\s*(.+)$/i);
@@ -350,7 +361,7 @@ export function parsePayrollWorkbook(buffer: Buffer): PayrollRecord[] {
     const record: PayrollRecord = {
       employeeName,
       designation,
-      epfNumber,
+      employeeNumber,
       employeeEmail,
       payrollMonth,
       payslipDate,
@@ -400,12 +411,12 @@ export interface ValidationResult {
 
 /** Trim whitespace from all string fields and preserve numbers as‑is. */
 export function normalizePayrollRecord(rec: PayrollRecord): PayrollRecord {
-  const trim = (s?: string) => (s ? s.trim() : undefined);
+  const trim = (s?: string | null) => (s ? s.trim() : undefined) ;
   return {
     ...rec,
     employeeName: trim(rec.employeeName),
     designation: trim(rec.designation),
-    epfNumber: trim(rec.epfNumber),
+    employeeNumber: trim(rec.employeeNumber),
     employeeEmail: trim(rec.employeeEmail),
     payrollMonth: trim(rec.payrollMonth),
     payslipDate: trim(rec.payslipDate),

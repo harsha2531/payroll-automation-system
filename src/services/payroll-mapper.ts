@@ -200,7 +200,7 @@ export function mapPayrollRecordToItem(
   // Snapshot employee number: from mapping, from epfNumber, or fallback
   const employeeNumber =
     employeeMapping?.employeeNumber ||
-    record.epfNumber ||
+    record.employeeNumber ||
     `${fallbackEmployeeNumberPrefix}-${String(itemIndex).padStart(3, "0")}`;
 
   // Snapshot email: from mapping, from record, company email, or placeholder
@@ -416,7 +416,7 @@ export function preparePayrollBatch(
   const warnings: string[] = [];
 
   records.forEach((record, idx) => {
-    const key = record.epfNumber || record.employeeName || "";
+    const key = record.employeeNumber || record.employeeName || "";
     const mapping = options.employeeLookup ? options.employeeLookup[key] : undefined;
 
     const item = mapPayrollRecordToItem(record, {

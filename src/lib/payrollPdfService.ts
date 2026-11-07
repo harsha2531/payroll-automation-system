@@ -7,6 +7,7 @@ import { chromium } from "playwright";
 import { createClient } from "@supabase/supabase-js";
 import { PayrollRow } from "@/types/payroll-ui";
 import { getPayrollRows } from "./payrollDataStore";
+import { PayrollRecord } from "@/services/payroll-parser";
 
 // Initialise Supabase client (service role key for privileged storage access)
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
@@ -26,13 +27,12 @@ function monthName(month: number): string {
 
 /** Build HTML for the payslip using stored payroll data. */
 function buildPayslipHtml(
-  employee: PayrollRow,
+  employee: PayrollRecord,
   year: number,
   month: number,
 ): string {
   // Period header with month name
   const period = `${year} - ${monthName(month)}`;
-
   // Extract core fields directly from employee
   const {
     grossPay = 0,
@@ -43,44 +43,61 @@ function buildPayslipHtml(
   } = employee as any;
 
   // Merge breakdown JSON fields if they exist
-  const earningsBreakdown = (employee as any).earnings_breakdown || {};
-  const deductionsBreakdown = (employee as any).deductions_breakdown || {};
+  const earningsBreakdown = (employee as any).allowances || {};
+  const deductionsBreakdown = (employee as any).employeeDeductions || {};
 
   // Allowances extraction
-  const allowancesObj = earningsBreakdown.allowances || {};
-  const budgetaryAllowance = Number(allowancesObj["Budgetary Allowance"] ?? 0);
-  const travellingAllowance = Number(allowancesObj["Travelling Allowance"] ?? 0);
-  const inflationAdjustment = Number(allowancesObj["Inflation Adjustment"] ?? 0);
-  const additionalAllowance = Number(allowancesObj["Additional Allowance"] ?? 0);
-  const basicSalary = Number(earningsBreakdown.basicSalary ?? grossPay);
+  const budgetaryAllowance = Number(earningsBreakdown["Budgetary Allowance"] ?? 0);
+  const travellingAllowance = Number(earningsBreakdown["Travelling Allowance"] ?? 0);
+  const inflationAdjustment = Number(earningsBreakdown["Inflation Adjustment"] ?? 0);
+  const additionalAllowance = Number(earningsBreakdown["Additional Allowance"] ?? 0);
+  const basicSalary = Number(employee.basicSalary ?? 0);
+
 
   // Variable pay handling – expect object { label: string, amount: number }
-  const variablePayObj = typeof variablePayRaw === "object" && variablePayRaw !== null
-    ? variablePayRaw
-    : null;
+
+  const variablePayObj =
+    typeof variablePayRaw === "object" && variablePayRaw !== null
+      ? variablePayRaw
+      : null;
+
   let variableLabel = "";
   let variableAmount = 0;
-  if (variablePayObj && typeof variablePayObj.amount === "number" && variablePayObj.amount > 0) {
-    const label = String(variablePayObj.label || "").toLowerCase();
-    if (label.includes("bonus")) {
+
+  if (variablePayObj) {
+    const rawLabel = String(variablePayObj.label ?? "").trim();
+    const normalizedLabel = rawLabel.toLowerCase();
+
+    if (normalizedLabel.includes("bonus")) {
       variableLabel = "Bonus";
-    } else if (label.includes("overtime")) {
+    } else if (
+      normalizedLabel.includes("overtime") ||
+      normalizedLabel.includes("over time")
+    ) {
       variableLabel = "Overtime";
-    } else {
-      // Preserve actual label if it's not Bonus or Overtime
-      variableLabel = variablePayObj.label;
+    } else if (rawLabel) {
+      // Preserve the original label if it is neither Bonus nor Overtime.
+      variableLabel = rawLabel;
     }
-    variableAmount = variablePayObj.amount;
+
+    variableAmount =
+      typeof variablePayObj.amount === "number" &&
+        Number.isFinite(variablePayObj.amount)
+        ? variablePayObj.amount
+        : 0;
   }
 
+
   // Deductions extraction
-  const employeeDeds = deductionsBreakdown.employeeDeductions || {};
-  const epfEmployee = Number(employeeDeds["E.P.F. 8%"] ?? 0);
-  const stampDuty = Number(employeeDeds["Stamp Duty"] ?? 0);
-  const totalDeduction = Number(employeeDeds.total ?? 0);
-  const employerContribs = deductionsBreakdown.employerContributions || {};
-  const epfEmployer = Number(employerContribs.epf12 ?? 0);
-  const etfEmployer = Number(employerContribs.etf3 ?? 0);
+  const lessNoPay = Number(deductionsBreakdown["Less : No Pay"] ?? 0);
+  const epfEmployee = Number(deductionsBreakdown["E.P.F. 8%"] ?? 0);
+  const stampDuty = Number(deductionsBreakdown["Stamp Duty"] ?? 0);
+  const totalDeduction = Number(deductionsBreakdown["total"] ?? 0);
+
+  const employerContribs = (employee as any).employerContributions || {};
+
+  const epfEmployer = Number(employerContribs["epf12"] ?? 0);
+  const etfEmployer = Number(employerContribs["etf3"] ?? 0);
 
 
 
@@ -90,8 +107,8 @@ function buildPayslipHtml(
     { label: "Travelling Allowance", value: travellingAllowance },
     { label: "Inflation Adjustment", value: inflationAdjustment },
     { label: "Additional Allowance", value: additionalAllowance },
-    // variableLabel may be empty if no applicable variable pay
-    ...(variableLabel && variableAmount > 0 ? [{ label: variableLabel, value: variableAmount }] : []),
+    // Include variable pay whenever a valid label exists, even if amount is 0
+    ...(variableLabel.trim() ? [{ label: variableLabel, value: variableAmount }] : []),
     { label: "Less : No Pay", value: lessNoPay },
   ];
 
@@ -147,7 +164,7 @@ function buildPayslipHtml(
   <div class="section">
     <strong>Employee:</strong> ${employee.employeeName}<br/>
     <strong>Employee No:</strong> ${employee.employeeNumber}<br/>
-    <strong>Department:</strong> ${employee.department ?? "-"}<br/>
+    <strong>Department:</strong> IT <br/>
     <strong>Designation:</strong> ${employee.designation ?? "-"}<br/>
   </div>
 
