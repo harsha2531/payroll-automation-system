@@ -5,23 +5,21 @@
 
 /**
  * Format a numeric amount into a localized currency string.
- * Defaults to USD if not specified.
+ * Defaults to Sri Lankan Rupees (LKR, en-SL) if not specified.
  */
 export function formatCurrency(
   amount: number,
-  currency: string = "USD",
-  locale: string = "en-US"
+  currency: string = "LKR", 
+  locale: string = "en-SL"
 ): string {
-  if (!Number.isFinite(amount)) {
-    return "$0.00";
-  }
+  const safeAmount = Number.isFinite(amount) ? amount : 0;
 
   return new Intl.NumberFormat(locale, {
     style: "currency",
     currency,
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(amount);
+  }).format(safeAmount);
 }
 
 /**

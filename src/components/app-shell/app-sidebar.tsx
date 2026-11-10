@@ -64,22 +64,19 @@ const adminPortalNavItems: NavItem[] = [
     title: "Import Excel",
     href: "/payroll/import",
     icon: FileSpreadsheet,
-    disabled: false,
-    badge: "Planned",
+    disabled: false
   },
   {
     title: "Monthly Payroll",
     href: "/payroll/monthly",
     icon: Banknote,
-    disabled: false,
-    badge: "Planned",
-  },
+    disabled: false
+   },
   {
     title: "Payslips",
     href: "/payslips",
     icon: FileText,
-    disabled: false,
-    badge: "Planned",
+    disabled: false
   },
 ];
 

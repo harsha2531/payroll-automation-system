@@ -24,9 +24,6 @@ export default async function PayslipsPage() {
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
               Payslips
             </h1>
-            <Badge variant="outline" className="text-xs bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30">
-              Planned Feature
-            </Badge>
           </div>
           <p className="text-muted-foreground text-sm mt-1">
             Generate, preview, and email password-protected employee payslip documents

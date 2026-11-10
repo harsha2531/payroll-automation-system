@@ -5,6 +5,7 @@
 import { useState, useEffect } from "react";
 import { fetchPayrollRows, startPayrollProcessing, retryPdfGeneration, retryEmailDelivery } from "@/services/payroll-ui.service";
 import { PayrollRow } from "@/types/payroll-ui";
+import { formatCurrency } from "@/lib/format";
 import { Card, CardHeader, CardDescription, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -83,7 +84,6 @@ export default function MonthlyPayrollClient() {
           <div className="flex items-center gap-2">
             <Calendar className="h-5 w-5 text-primary" />
             <h1 className="text-2xl font-bold">Monthly Payroll</h1>
-            <Badge variant="outline" className="ml-2 bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30">Processing</Badge>
           </div>
           <CardDescription>Select month/year, review salaries and trigger processing.</CardDescription>
         </CardHeader>
@@ -130,8 +130,8 @@ export default function MonthlyPayrollClient() {
                     <tr key={row.employeeId} className="border-b">
                       <td className="px-3 py-2">{row.employeeName}</td>
                       <td className="px-3 py-2">{row.employeeNumber}</td>
-                      <td className="px-3 py-2 text-right">{new Intl.NumberFormat("en-SL", { style: "currency", currency: "LKR" }).format(row.grossPay)}</td>
-                      <td className="px-3 py-2 text-right">{new Intl.NumberFormat("en-SL", { style: "currency", currency: "LKR" }).format(row.netPay)}</td>
+                      <td className="px-3 py-2 text-right">{formatCurrency(row.grossPay)}</td>
+                      <td className="px-3 py-2 text-right">{formatCurrency(row.netPay)}</td>
                       <td className="px-3 py-2 text-center">
                         <div className="flex flex-col items-center gap-1">
                           <Badge
