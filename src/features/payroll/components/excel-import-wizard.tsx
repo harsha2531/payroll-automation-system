@@ -272,7 +272,7 @@ export function ExcelImportWizard() {
                         {row.employeeName || row.sourceSheetName || "Unnamed sheet"}
                       </CardTitle>
                       <CardDescription>
-                        Sheet: {row.sourceSheetName || "—"} · Match:{" "}
+                        Employee No: <span className="font-medium text-foreground">{row.employeeNumber}</span> · Sheet: {row.sourceSheetName || "—"} · Match:{" "}
                         {row.identityMatch}
                       </CardDescription>
                     </div>

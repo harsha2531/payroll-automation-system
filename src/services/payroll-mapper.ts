@@ -197,10 +197,11 @@ export function mapPayrollRecordToItem(
   const designation = employeeMapping?.designation || record.designation || null;
   const department = employeeMapping?.department || null;
 
-  // Snapshot employee number: from mapping, from epfNumber, or fallback
+  // Snapshot employee number: from mapping, from employeeNumber, from epfNumber, or fallback
   const employeeNumber =
     employeeMapping?.employeeNumber ||
     record.employeeNumber ||
+    (record.epfNumber ? record.epfNumber : undefined) ||
     `${fallbackEmployeeNumberPrefix}-${String(itemIndex).padStart(3, "0")}`;
 
   // Snapshot email: from mapping, from record, company email, or placeholder

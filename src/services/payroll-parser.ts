@@ -14,8 +14,12 @@ export interface PayrollRecord {
   employeeName?: string;
   /** Designation / job title */
   designation?: string | null;
-  /** EPF number if present */
+  /** Generated employee identifier (e.g. PS-0001, CS-0001) */
   employeeNumber?: string;
+  /** EPF number if present (numbers only) */
+  epfNumber?: string | null;
+  /** Determined staff category based on sheet fields */
+  staffCategory?: "permanent" | "contract";
   /** Employee email if available */
   employeeEmail?: string | null;
   /** Payroll month (e.g. "July 2022") */
@@ -113,6 +117,7 @@ export function parsePayrollWorkbook(buffer: Buffer): PayrollRecord[] {
 
   // Determine if there are specific employee sheets alongside summary sheets
   const hasMultipleSheets = wb.SheetNames.length > 1;
+  let workbookCompanyEmail: string | undefined;
 
   for (const sheetName of wb.SheetNames) {
     // If workbook has multiple sheets, skip summary/data field sheets in favor of individual payslips
@@ -130,7 +135,13 @@ export function parsePayrollWorkbook(buffer: Buffer): PayrollRecord[] {
     let employeeName: string | undefined;
     let designation: string | undefined;
     let employeeNumber: string | undefined;
+    let epfNumber: string | undefined;
+    let staffCategory: "permanent" | "contract" = "permanent";
+    let hasEpfNoField = false;
+    let rawEpfEntry: string | undefined;
+    let isContractBasis = false;
     let employeeEmail: string | undefined;
+    let sheetEmail: string | undefined;
     let payrollMonth: string | undefined;
     let payslipDate: string | undefined;
 
@@ -151,7 +162,7 @@ export function parsePayrollWorkbook(buffer: Buffer): PayrollRecord[] {
     let employerContributions: number | undefined;
     const rawValues: Record<string, unknown> = {};
 
-    // Inspect initial rows for company metadata
+    // Inspect initial rows for company metadata and emails
     for (let r = 0; r < Math.min(raw.length, 5); r++) {
       const rowCells = raw[r] as (string | undefined)[];
       for (const c of rowCells) {
@@ -163,6 +174,8 @@ export function parsePayrollWorkbook(buffer: Buffer): PayrollRecord[] {
             companyAddress = str;
           } else if (/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/.test(str)) {
             if (!companyEmail) companyEmail = str;
+            if (!workbookCompanyEmail) workbookCompanyEmail = str;
+            if (!sheetEmail) sheetEmail = str;
           }
         }
       }
@@ -197,30 +210,46 @@ export function parsePayrollWorkbook(buffer: Buffer): PayrollRecord[] {
           if (next !== undefined) designation = String(next).trim();
         }
 
-        // 3. EPF No
-        const epfMatch = txt.match(/^epf\s*(?:no\.?|number)?\s*:\s*(.*)$/i);
-        if (epfMatch) {
-          const epfVal = epfMatch[1].trim();
-          if (epfVal) employeeNumber = epfVal;
-        } else if (/^epf\s*(?:no\.?|number)\b/i.test(txt)) {
+        // Check for Contract Basis
+        if (/contract\s*basis/i.test(txt)) {
+          isContractBasis = true;
+        }
+
+        // 3. EPF No detection
+        const epfColonMatch = txt.match(/^epf\s*(?:no\.?|number)?\s*:\s*(.*)$/i);
+        if (epfColonMatch && !/8%|12%|20%/i.test(txt)) {
+          hasEpfNoField = true;
+          const val = epfColonMatch[1].trim();
+          if (val) {
+            rawEpfEntry = val;
+          } else {
+            const next = findNextValue(cells, i);
+            if (next !== undefined && String(next).trim() !== "") {
+              rawEpfEntry = String(next).trim();
+            }
+          }
+        } else if (/^epf\s*(?:no\.?|number)\b/i.test(txt) && !/8%|12%|20%/i.test(txt)) {
+          hasEpfNoField = true;
           const next = findNextValue(cells, i);
-          if (next !== undefined && !/^\d+(?:\.\d+)?$/.test(String(next).trim())) {
-            employeeNumber = String(next).trim();
+          if (next !== undefined && String(next).trim() !== "") {
+            rawEpfEntry = String(next).trim();
           }
         }
 
-        // 2. Employee Email
-        const emailMatch = txt.match(/^email\s*:\s*(.+)$/i);
+        // 4. Employee Email
+        const emailMatch = txt.match(/^(?:employee\s*)?email\s*:\s*(.+)$/i);
         if (emailMatch) {
-            employeeEmail = emailMatch[1].trim();
+          employeeEmail = emailMatch[1].trim();
         } else if (/^(?:employee\s*)?email\b/i.test(txt) && !employeeEmail) {
-            const next = findNextValue(cells, i);
+          const next = findNextValue(cells, i);
           if (next !== undefined && typeof next === "string") {
             employeeEmail = next.trim();
-  }
-}
+          }
+        } else if (/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/.test(txt)) {
+          if (!sheetEmail) sheetEmail = txt;
+        }
 
-        // 4. Payroll Month
+        // 5. Payroll Month
         const monthMatch = txt.match(/^(?:payroll\s*)?month\s*:\s*(.+)$/i);
         if (monthMatch) {
           payrollMonth = monthMatch[1].trim();
@@ -229,7 +258,7 @@ export function parsePayrollWorkbook(buffer: Buffer): PayrollRecord[] {
           if (next !== undefined) payrollMonth = String(next).trim();
         }
 
-        // 5. Payslip Date
+        // 6. Payslip Date
         const dateMatch = txt.match(/^(?:payslip\s*)?date\s*:\s*(.+)$/i);
         if (dateMatch) {
           payslipDate = dateMatch[1].trim();
@@ -358,16 +387,43 @@ export function parsePayrollWorkbook(buffer: Buffer): PayrollRecord[] {
       employerContributions = (employerEpf ?? 0) + (employerEtf ?? 0);
     }
 
+    // 1. Staff Category and EPF Number determination
+    if (isContractBasis) {
+      staffCategory = "contract";
+      epfNumber = undefined; // Contract staff: leave epf_number blank
+    } else if (hasEpfNoField) {
+      staffCategory = "permanent";
+      if (rawEpfEntry) {
+        // Save only the number under the "epf_number" column
+        const digits = rawEpfEntry.replace(/\D/g, "");
+        epfNumber = digits.length > 0 ? digits : undefined;
+      } else {
+        epfNumber = undefined; // No entry under EPF No: leave epf_number blank
+      }
+    } else {
+      staffCategory = "permanent";
+      if (rawEpfEntry) {
+        const digits = rawEpfEntry.replace(/\D/g, "");
+        epfNumber = digits.length > 0 ? digits : undefined;
+      }
+    }
+
+    // 2. Email fallback: ensure email is populated for every employee
+    const finalCompanyEmail = companyEmail || workbookCompanyEmail;
+    const finalEmployeeEmail = employeeEmail || sheetEmail || finalCompanyEmail;
+
     const record: PayrollRecord = {
       employeeName,
       designation,
       employeeNumber,
-      employeeEmail,
+      epfNumber,
+      staffCategory,
+      employeeEmail: finalEmployeeEmail,
       payrollMonth,
       payslipDate,
       companyName,
       companyAddress,
-      companyEmail,
+      companyEmail: finalCompanyEmail,
       sourceSheetName: sheetName,
       basicSalary,
       allowances: calculatedAllowances,
@@ -417,6 +473,8 @@ export function normalizePayrollRecord(rec: PayrollRecord): PayrollRecord {
     employeeName: trim(rec.employeeName),
     designation: trim(rec.designation),
     employeeNumber: trim(rec.employeeNumber),
+    epfNumber: trim(rec.epfNumber),
+    staffCategory: rec.staffCategory,
     employeeEmail: trim(rec.employeeEmail),
     payrollMonth: trim(rec.payrollMonth),
     payslipDate: trim(rec.payslipDate),

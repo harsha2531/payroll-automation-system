@@ -353,6 +353,7 @@ export function buildPayslipHtml(
     <div><span class="info-label">Employee Name:</span><span class="info-value">${employee.employeeName}</span></div>
     <div><span class="info-label">Designation:</span><span class="info-value">${employee.designation ?? "-"}</span></div>
     <div><span class="info-label">Employee No:</span><span class="info-value">${employee.employeeNumber}</span></div>
+    <div><span class="info-label">EPF No:</span><span class="info-value">${employee.epfNumber ?? "-"}</span></div>
     <div><span class="info-label">Department:</span><span class="info-value">IT</span></div>
   </div>
 

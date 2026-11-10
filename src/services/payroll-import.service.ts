@@ -81,11 +81,16 @@ function overlayRecord(
   correction?: ImportRowCorrection
 ): PayrollRecord {
   if (!correction) return record;
+  const correctedEpf =
+    correction.epfNumber !== undefined
+      ? correction.epfNumber.trim() ? correction.epfNumber.replace(/\D/g, "") : null
+      : record.epfNumber;
   return {
     ...record,
     employeeName: correction.employeeName?.trim() || record.employeeName,
-    employeeEmail: correction.email?.trim() || record.employeeEmail,
-    employeeNumber: correction.epfNumber?.trim() || record.employeeNumber,
+    employeeEmail: correction.email?.trim() || record.employeeEmail || record.companyEmail,
+    employeeNumber: record.employeeNumber,
+    epfNumber: correctedEpf,
     designation: correction.designation?.trim() || record.designation,
   };
 }
@@ -94,13 +99,23 @@ function matchEmployee(
   record: PayrollRecord,
   employees: Employee[]
 ): { employee: Employee; identityMatch: ImportPreviewRow["identityMatch"] } | null {
-  const epf = normalizeKey(record.employeeNumber);
-  if (epf) {
-    const hits = employees.filter((e) => normalizeKey(e.epfNumber) === epf);
+  // 1. Match by EPF number if present (exact match or digits-only match)
+  const epfDigits = (record.epfNumber || record.employeeNumber || "").replace(/\D/g, "");
+  const epfRaw = normalizeKey(record.epfNumber || record.employeeNumber);
+  if (epfDigits || epfRaw) {
+    const hits = employees.filter((e) => {
+      const eDigits = (e.epfNumber || "").replace(/\D/g, "");
+      const eRaw = normalizeKey(e.epfNumber);
+      return (
+        (epfDigits && eDigits && epfDigits === eDigits) ||
+        (epfRaw && eRaw && epfRaw === eRaw)
+      );
+    });
     if (hits.length === 1) return { employee: hits[0], identityMatch: "epf" };
     if (hits.length > 1) return null;
   }
 
+  // 2. Match by employee number if present
   const numberKey = normalizeKey(record.employeeNumber);
   if (numberKey) {
     const hits = employees.filter(
@@ -111,6 +126,16 @@ function matchEmployee(
     }
   }
 
+  // 3. Match by full name
+  const nameKey = normalizeKey(record.employeeName);
+  if (nameKey) {
+    const hits = employees.filter((e) => normalizeKey(e.fullName) === nameKey);
+    if (hits.length === 1) {
+      return { employee: hits[0], identityMatch: "name" };
+    }
+  }
+
+  // 4. Match by email
   const email = normalizeKey(record.employeeEmail);
   if (email && !isPlaceholderEmail(email)) {
     const hits = employees.filter((e) => normalizeKey(e.email) === email);
@@ -118,6 +143,19 @@ function matchEmployee(
   }
 
   return null;
+}
+
+function getMaxSequentialNumber(employees: Employee[], prefix: "PS" | "CS"): number {
+  let max = 0;
+  const regex = new RegExp(`^${prefix}-(\\d+)$`, "i");
+  for (const emp of employees) {
+    const m = emp.employeeNumber?.match(regex);
+    if (m) {
+      const num = parseInt(m[1], 10);
+      if (num > max) max = num;
+    }
+  }
+  return max;
 }
 
 function buildDisposition(params: {
@@ -254,6 +292,26 @@ export const PayrollImportService = {
       return overlayRecord(record, correctionByKey.get(key));
     });
 
+    let nextPsSeq = getMaxSequentialNumber(employees, "PS");
+    let nextCsSeq = getMaxSequentialNumber(employees, "CS");
+
+    // Match each record and pre-assign employee numbers
+    const matches = overlayed.map((record) => {
+      const match = matchEmployee(record, employees);
+      if (match?.employee) {
+        record.employeeNumber = match.employee.employeeNumber;
+      } else if (!record.employeeNumber) {
+        if (record.staffCategory === "contract") {
+          nextCsSeq++;
+          record.employeeNumber = `CS-${String(nextCsSeq).padStart(4, "0")}`;
+        } else {
+          nextPsSeq++;
+          record.employeeNumber = `PS-${String(nextPsSeq).padStart(4, "0")}`;
+        }
+      }
+      return match;
+    });
+
     const periods = overlayed
       .map((r) => parsePayrollMonth(r.payrollMonth))
       .filter((p): p is { year: number; month: number } => Boolean(p));
@@ -271,10 +329,10 @@ export const PayrollImportService = {
     const periodRuns =
       primaryPeriod && !mixedPeriods
         ? await PayrollRunRepository.findByPeriod(
-            supabase,
-            primaryPeriod.year,
-            primaryPeriod.month
-          )
+          supabase,
+          primaryPeriod.year,
+          primaryPeriod.month
+        )
         : [];
     const existingItems = await PayrollItemRepository.listByRunIds(
       supabase,
@@ -299,9 +357,9 @@ export const PayrollImportService = {
       const item = batch.items[index];
       const warnings = item.calculationMetadata.discrepancies ?? [];
 
-      if (record.employeeNumber) {
-        const epfKey = normalizeKey(record.employeeNumber);
-        const first = seenEpf.get(epfKey);
+      const epf = normalizeKey(record.epfNumber);
+      if (epf) {
+        const first = seenEpf.get(epf);
         if (first) {
           issues.push({
             severity: "error",
@@ -310,14 +368,13 @@ export const PayrollImportService = {
           });
         } else {
           seenEpf.set(
-            epfKey,
+            epf,
             record.employeeName || sheet || `row ${index + 1}`
           );
         }
       }
 
-      const match = matchEmployee(record, employees);
-      const epf = normalizeKey(record.employeeNumber);
+      const match = matches[index];
       const ambiguous =
         Boolean(epf) &&
         employees.filter((e) => normalizeKey(e.epfNumber) === epf).length > 1;
@@ -354,10 +411,10 @@ export const PayrollImportService = {
         sourceSheetName: sheet,
         originalEmployeeName: originalName,
         employeeName: record.employeeName || "",
-        email: record.employeeEmail || existing?.email || "",
-        epfNumber: record.employeeNumber || existing?.epfNumber || "",
+        email: record.employeeEmail || record.companyEmail || existing?.email || "",
+        epfNumber: record.epfNumber || existing?.epfNumber || "",
         designation: record.designation || existing?.designation || "",
-        employeeNumber: item.employeeNumberSnapshot,
+        employeeNumber: record.employeeNumber || item.employeeNumberSnapshot,
         periodLabel: record.payrollMonth || "",
         year: period?.year ?? null,
         month: period?.month ?? null,
@@ -369,13 +426,13 @@ export const PayrollImportService = {
         applyEmployeeUpdates: correction?.applyEmployeeUpdates ?? false,
         existingEmployee: existing
           ? {
-              id: existing.id,
-              employeeNumber: existing.employeeNumber,
-              fullName: existing.fullName,
-              email: existing.email,
-              epfNumber: existing.epfNumber,
-              designation: existing.designation,
-            }
+            id: existing.id,
+            employeeNumber: existing.employeeNumber,
+            fullName: existing.fullName,
+            email: existing.email,
+            epfNumber: existing.epfNumber,
+            designation: existing.designation,
+          }
           : null,
         duplicatePeriod,
         identityMatch: match?.identityMatch ?? "none",
@@ -493,48 +550,59 @@ export const PayrollImportService = {
           continue;
         }
 
+        const employeeNumber =
+          (row.employeeNumber || sourceRecord.employeeNumber || "").trim() ||
+          (sourceRecord.staffCategory === "contract"
+            ? `CS-${String(recordIndex + 1).padStart(4, "0")}`
+            : `PS-${String(recordIndex + 1).padStart(4, "0")}`);
+
         let employeeId = row.existingEmployee?.id ?? null;
         let updatedMaster = false;
 
         if (!employeeId) {
-          const preferredNumber =
-            (sourceRecord.employeeNumber || row.employeeNumber || "").trim() ||
-            `EMP-${String(recordIndex + 1).padStart(3, "0")}`;
-          const employeeNumber = await allocateEmployeeNumber(
+          // Check against the "employee_number" in the table
+          const existingByNumber = await EmployeeRepository.findByEmployeeNumber(
             supabase,
-            preferredNumber
+            employeeNumber
           );
-          const email =
-            (sourceRecord.employeeEmail || row.email || "").trim() ||
-            `${sanitizeLocalPart(employeeNumber)}@imported.local`;
 
-          const created = await EmployeeRepository.createEmployee(supabase, {
-            employeeNumber,
-            fullName: (sourceRecord.employeeName || row.employeeName).trim(),
-            email,
-            designation: sourceRecord.designation || row.designation || null,
-            epfNumber: sourceRecord.employeeNumber || row.epfNumber || null,
-            status: "active",
-          });
+          if (existingByNumber) {
+            // If it is already saved, do not add it as a new employee
+            employeeId = existingByNumber.id;
+          } else {
+            // Add the record only if it does not already exist
+            const email =
+              (row.email || sourceRecord.employeeEmail || sourceRecord.companyEmail || "").trim() ||
+              `${sanitizeLocalPart(employeeNumber)}@imported.local`;
 
-          if (!created.success) {
-            summaryRows.push({
-              rowId: row.rowId,
-              employeeName: row.employeeName,
-              outcome: "failed",
-              message: created.error,
+            const created = await EmployeeRepository.createEmployee(supabase, {
+              employeeNumber,
+              fullName: (sourceRecord.employeeName || row.employeeName).trim(),
+              email,
+              designation: sourceRecord.designation || row.designation || null,
+              epfNumber: row.epfNumber || sourceRecord.epfNumber || null,
+              status: "active",
             });
-            continue;
-          }
 
-          employeeId = created.data.id;
-          await EmployeeRepository.upsertPayrollDetails(supabase, employeeId, {
-            basicSalary: row.amounts.basicSalary,
-            allowances: row.amounts.allowances,
-            variablePayLabel: row.amounts.variablePayLabel,
-            variablePayAmount: row.amounts.variablePayAmount,
-            effectiveFrom: `${preview.year}-${String(preview.month).padStart(2, "0")}-01`,
-          });
+            if (!created.success) {
+              summaryRows.push({
+                rowId: row.rowId,
+                employeeName: row.employeeName,
+                outcome: "failed",
+                message: created.error,
+              });
+              continue;
+            }
+
+            employeeId = created.data.id;
+            await EmployeeRepository.upsertPayrollDetails(supabase, employeeId, {
+              basicSalary: row.amounts.basicSalary,
+              allowances: row.amounts.allowances,
+              variablePayLabel: row.amounts.variablePayLabel,
+              variablePayAmount: row.amounts.variablePayAmount,
+              effectiveFrom: `${preview.year}-${String(preview.month).padStart(2, "0")}-01`,
+            });
+          }
         } else {
           const existing = row.existingEmployee;
           const fill: {
@@ -547,9 +615,9 @@ export const PayrollImportService = {
           if (
             existing &&
             !existing.epfNumber &&
-            (sourceRecord.employeeNumber || row.epfNumber)
+            (row.epfNumber || sourceRecord.epfNumber)
           ) {
-            fill.epfNumber = sourceRecord.employeeNumber || row.epfNumber;
+            fill.epfNumber = row.epfNumber || sourceRecord.epfNumber;
           }
           if (
             existing &&
@@ -563,16 +631,16 @@ export const PayrollImportService = {
             fill.fullName = (
               sourceRecord.employeeName || row.employeeName
             ).trim();
-            if (
-              sourceRecord.employeeEmail &&
-              !isPlaceholderEmail(sourceRecord.employeeEmail)
-            ) {
-              fill.email = sourceRecord.employeeEmail.trim().toLowerCase();
+            const candEmail = (row.email || sourceRecord.employeeEmail || sourceRecord.companyEmail || "").trim();
+            if (candEmail && !isPlaceholderEmail(candEmail)) {
+              fill.email = candEmail.toLowerCase();
             }
-            if (sourceRecord.designation) {
-              fill.designation = sourceRecord.designation;
+            if (sourceRecord.designation || row.designation) {
+              fill.designation = sourceRecord.designation || row.designation;
             }
-            if (sourceRecord.employeeNumber) fill.epfNumber = sourceRecord.employeeNumber;
+            if (row.epfNumber || sourceRecord.epfNumber) {
+              fill.epfNumber = row.epfNumber || sourceRecord.epfNumber;
+            }
           }
 
           if (Object.keys(fill).length > 0) {
@@ -650,7 +718,7 @@ export const PayrollImportService = {
             employeeNumber:
               row.existingEmployee?.employeeNumber || row.employeeNumber,
             fullName: record.employeeName || row.employeeName,
-            email: record.employeeEmail || row.email,
+            email: row.email || record.employeeEmail || record.companyEmail || "",
             designation: record.designation || row.designation,
           },
         });

@@ -45,7 +45,7 @@ export interface ImportPreviewRow {
     designation: string | null;
   } | null;
   duplicatePeriod: boolean;
-  identityMatch: "epf" | "employee_number" | "email" | "none";
+  identityMatch: "epf" | "employee_number" | "name" | "email" | "none";
 }
 
 export interface ImportPreview {
