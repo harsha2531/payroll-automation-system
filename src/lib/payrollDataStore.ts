@@ -31,9 +31,11 @@ interface RawPayrollItem {
   employees?:
   | {
     email?: string | null;
+    epf_number?: string | null;
   }
   | {
     email?: string | null;
+    epf_number?: string | null;
   }[]
   | null;
   payslip_documents?:
@@ -155,7 +157,8 @@ export async function getPayrollRows(
         employee_number_snapshot,
         employee_email_snapshot,
         employees (
-          email
+          email,
+          epf_number
         ),
         department_snapshot,
         designation_snapshot,
@@ -202,7 +205,8 @@ export async function getPayrollRows(
         employee_number_snapshot,
         employee_email_snapshot,
         employees (
-          email
+          email,
+          epf_number
         ),
         department_snapshot,
         designation_snapshot,
@@ -311,6 +315,10 @@ export async function getPayrollRows(
       const empData = Array.isArray(r.employees) ? r.employees[0] : r.employees;
       const employeeEmail =
         empData?.email?.trim() || r.employee_email_snapshot?.trim() || null;
+      const epfNumber =
+        empData?.epf_number?.trim() ||
+        (r.calculation_metadata as Record<string, unknown> | null)?.epfNumber?.toString().trim() ||
+        null;
 
       const row: PayrollRow = {
         payrollItemId: r.id,
@@ -319,6 +327,7 @@ export async function getPayrollRows(
         employeeName: r.employee_name_snapshot ?? "",
         employeeNumber: r.employee_number_snapshot ?? "",
         employeeEmail,
+        epfNumber: epfNumber || undefined,
         department: r.department_snapshot ?? null,
         designation: r.designation_snapshot ?? null,
         grossPay: Number(r.gross_pay ?? 0),

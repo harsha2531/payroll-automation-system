@@ -5,9 +5,9 @@
  */
 import { chromium } from "playwright";
 import { createClient } from "@supabase/supabase-js";
-import { PayrollRow } from "@/types/payroll-ui";
 import { getPayrollRows } from "./payrollDataStore";
 import { PayrollRecord } from "@/services/payroll-parser";
+import { PayrollRow } from "@/types/payroll-ui";
 
 // Helper to obtain Supabase client with privileged service role key
 function getSupabaseClient() {
@@ -29,7 +29,7 @@ function monthName(month: number): string {
 
 /** Build HTML for the payslip using stored payroll data. */
 export function buildPayslipHtml(
-  employee: PayrollRecord,
+  employee: PayrollRecord | PayrollRow,
   year: number,
   month: number,
 ): string {
@@ -341,6 +341,7 @@ export function buildPayslipHtml(
     <div>
       <h1 class="company-title">STARTUP SOLUTIONS (PVT) LTD</h1>
       <p class="company-sub">No.18, Ekwatta Road, Mirihana, Nugegoda</p>
+      <p class="company-sub">+9411286915 | +94-777-560-540 | info@startupxsolutions.com | http://startupxsolutions.com</p>
     </div>
     <div class="header-right">
       <div class="payslip-badge">PAYSLIP</div>
@@ -353,7 +354,7 @@ export function buildPayslipHtml(
     <div><span class="info-label">Employee Name:</span><span class="info-value">${employee.employeeName}</span></div>
     <div><span class="info-label">Designation:</span><span class="info-value">${employee.designation ?? "-"}</span></div>
     <div><span class="info-label">Employee No:</span><span class="info-value">${employee.employeeNumber}</span></div>
-    <div><span class="info-label">EPF No:</span><span class="info-value">${employee.epfNumber ?? "-"}</span></div>
+    <div><span class="info-label">EPF No:</span><span class="info-value">${employee?.epfNumber ?? "-"}</span></div>
     <div><span class="info-label">Department:</span><span class="info-value">IT</span></div>
   </div>
 

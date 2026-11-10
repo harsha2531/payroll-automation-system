@@ -230,6 +230,8 @@ describe("payrollDataStore", () => {
       "Sarah Connor",
       "EMP002",
       "https://storage.local/payslip/EMP002.pdf",
+      8,
+      2026,
       "sarah.connor@sky.net",
       expect.anything()
     );
@@ -486,6 +488,8 @@ describe("payrollDataStore", () => {
       "Retry User",
       "EMP007",
       "payslips/EMP007_2026-06.pdf",
+      6,
+      2026,
       "retry.user@company.com",
       expect.anything()
     );

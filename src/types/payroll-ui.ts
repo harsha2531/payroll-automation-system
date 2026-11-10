@@ -8,6 +8,8 @@
 export type PayslipStatus = "pending" | "generated" | "emailed" | "failed";
 
 export interface PayrollRow {
+  /** Optional EPF number (digits only) */
+  epfNumber?: string | null;
   /** Unique identifier of the employee */
   employeeId: string;
   /** Human readable name */

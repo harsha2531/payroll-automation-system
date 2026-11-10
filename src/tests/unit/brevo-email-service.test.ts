@@ -46,7 +46,9 @@ describe("brevoEmailService", () => {
       "Alice Walker",
       "EMP099",
       "https://storage.supabase.co/payslips/EMP099.pdf",
-      null,
+      7,
+      2026,
+      null as any,
       mockSupabase as unknown as SupabaseClient
     );
 
@@ -72,6 +74,8 @@ describe("brevoEmailService", () => {
       "Bob Dylan",
       "EMP100",
       "https://storage.supabase.co/payslips/EMP100.pdf",
+      7,
+      2026,
       "bob.dylan@musicians.org",
       mockSupabase as unknown as SupabaseClient
     );
@@ -104,7 +108,9 @@ describe("brevoEmailService", () => {
         "Ghost Employee",
         "EMP999",
         "https://storage.supabase.co/payslips/EMP999.pdf",
-        null,
+        7,
+        2026,
+        null as any,
         mockSupabase as unknown as SupabaseClient
       )
     ).rejects.toThrow(/No email address found in database for employee Ghost Employee/);

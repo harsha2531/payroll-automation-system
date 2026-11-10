@@ -130,8 +130,8 @@ export default function MonthlyPayrollClient() {
                     <tr key={row.employeeId} className="border-b">
                       <td className="px-3 py-2">{row.employeeName}</td>
                       <td className="px-3 py-2">{row.employeeNumber}</td>
-                      <td className="px-3 py-2 text-right">{new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(row.grossPay)}</td>
-                      <td className="px-3 py-2 text-right">{new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(row.netPay)}</td>
+                      <td className="px-3 py-2 text-right">{new Intl.NumberFormat("en-SL", { style: "currency", currency: "LKR" }).format(row.grossPay)}</td>
+                      <td className="px-3 py-2 text-right">{new Intl.NumberFormat("en-SL", { style: "currency", currency: "LKR" }).format(row.netPay)}</td>
                       <td className="px-3 py-2 text-center">
                         <div className="flex flex-col items-center gap-1">
                           <Badge

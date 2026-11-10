@@ -74,6 +74,7 @@ export interface EmployeeMapping {
   email: string;
   designation?: string | null;
   department?: string | null;
+  epfNumber?: string | null;
 }
 
 export interface MapItemOptions {
@@ -309,6 +310,7 @@ export function mapPayrollRecordToItem(
     payrollPeriod: period ?? undefined,
     payslipDate: record.payslipDate,
     sourceSheetName: record.sourceSheetName,
+    epfNumber: record.epfNumber || employeeMapping?.epfNumber || undefined,
     discrepancies,
     isConsistent: discrepancies.length === 0,
     extractedAt: new Date().toISOString(),
