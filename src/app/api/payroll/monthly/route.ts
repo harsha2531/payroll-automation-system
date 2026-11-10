@@ -1,7 +1,7 @@
 // src/app/api/payroll/monthly/route.ts
 import { NextResponse } from "next/server";
 import { getPayrollRows } from "@/lib/payrollDataStore";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/server";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -12,7 +12,7 @@ export async function GET(request: Request) {
   const month = monthParam ? parseInt(monthParam, 10) : new Date().getMonth() + 1;
 
   try {
-    const supabase = await createServerSupabaseClient();
+    const supabase = createAdminClient();
     const rows = await getPayrollRows(year, month, supabase);
     return NextResponse.json(rows);
   } catch (error) {

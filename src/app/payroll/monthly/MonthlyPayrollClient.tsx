@@ -160,29 +160,38 @@ export default function MonthlyPayrollClient() {
                       <td className="px-3 py-2 text-center">
                         <div className="flex items-center justify-center space-x-1">
                           {/* When PDF exists: show View and Download actions */}
-                          {row.payslipUrl && (
-                            <>
-                              <a
-                                href={row.payslipUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center justify-center h-8 w-8 rounded-md text-sm hover:bg-accent hover:text-accent-foreground text-primary"
-                                title="View Payslip"
-                              >
-                                <FileCheck className="h-4 w-4" />
-                              </a>
-                              <a
-                                href={row.payslipUrl}
-                                download={`Payslip_${row.employeeNumber}_${year}_${month}.pdf`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center justify-center h-8 w-8 rounded-md text-sm hover:bg-accent hover:text-accent-foreground text-primary"
-                                title="Download PDF"
-                              >
-                                <Download className="h-4 w-4" />
-                              </a>
-                            </>
-                          )}
+                          {row.payslipUrl && (() => {
+                            const payslipHref =
+                              row.payslipUrl.startsWith("http://") ||
+                              row.payslipUrl.startsWith("https://") ||
+                              row.payslipUrl.startsWith("/")
+                                ? row.payslipUrl
+                                : `/api/payroll/payslip?path=${encodeURIComponent(row.payslipUrl)}&employeeId=${encodeURIComponent(row.employeeId)}&year=${year}&month=${month}`;
+
+                            return (
+                              <>
+                                <a
+                                  href={payslipHref}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center justify-center h-8 w-8 rounded-md text-sm hover:bg-accent hover:text-accent-foreground text-primary"
+                                  title="View Payslip"
+                                >
+                                  <FileCheck className="h-4 w-4" />
+                                </a>
+                                <a
+                                  href={payslipHref}
+                                  download={`Payslip_${row.employeeNumber}_${year}_${month}.pdf`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center justify-center h-8 w-8 rounded-md text-sm hover:bg-accent hover:text-accent-foreground text-primary"
+                                  title="Download PDF"
+                                >
+                                  <Download className="h-4 w-4" />
+                                </a>
+                              </>
+                            );
+                          })()}
 
                           {/* When PDF failed: show Retry PDF action */}
                           {(row.payslipStatus === "failed" && !row.payslipUrl) && (
