@@ -255,7 +255,7 @@ export default async function ProtectedDashboardPage() {
             <div className="mt-4 pt-3 border-t border-border flex items-center justify-between text-xs">
               <span className="text-muted-foreground">Payslip Archive</span>
               <Link
-                href="/payslips"
+                href="/payroll/monthly"
                 className="text-primary hover:underline font-medium inline-flex items-center gap-1"
               >
                 View <ArrowRight className="h-3 w-3" />
@@ -293,7 +293,7 @@ export default async function ProtectedDashboardPage() {
             <div className="mt-4 pt-3 border-t border-border flex items-center justify-between text-xs">
               <span className="text-muted-foreground">Email Deliveries</span>
               <Link
-                href="/payslips"
+                href="/payroll/monthly"
                 className="text-primary hover:underline font-medium inline-flex items-center gap-1"
               >
                 Status <ArrowRight className="h-3 w-3" />

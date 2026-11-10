@@ -71,13 +71,13 @@ const adminPortalNavItems: NavItem[] = [
     href: "/payroll/monthly",
     icon: Banknote,
     disabled: false
-   },
-  {
-    title: "Payslips",
-    href: "/payslips",
-    icon: FileText,
-    disabled: false
-  },
+   }
+  // {
+  //   title: "Payslips",
+  //   href: "/payslips",
+  //   icon: FileText,
+  //   disabled: false
+  // },
 ];
 
 export interface AppSidebarProps {
