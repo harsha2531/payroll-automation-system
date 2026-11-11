@@ -9,7 +9,7 @@ import { formatCurrency } from "@/lib/format";
 import { Card, CardHeader, CardDescription, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, RefreshCcw, Loader2, FileCheck, Mail, Download } from "lucide-react";
+import { Calendar, RefreshCcw, Loader2, FileCheck, Mail, Download, AlertCircle } from "lucide-react";
 
 
 export default function MonthlyPayrollClient() {
@@ -17,17 +17,21 @@ export default function MonthlyPayrollClient() {
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [rows, setRows] = useState<PayrollRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [processingJobId, setProcessingJobId] = useState<string | null>(null);
 
   // Load payroll rows when year/month change
   useEffect(() => {
     async function load() {
       setLoading(true);
+      setFetchError(null);
       try {
         const data = await fetchPayrollRows(year, month);
         setRows(data);
       } catch (e) {
         console.error(e);
+        setFetchError((e as Error).message || "Failed to load payroll data");
+        setRows([]);
       } finally {
         setLoading(false);
       }
@@ -88,13 +92,22 @@ export default function MonthlyPayrollClient() {
           <CardDescription>Select month/year, review salaries and trigger processing.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {fetchError && (
+            <div
+              role="alert"
+              className="flex items-start gap-2 rounded-md border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive"
+            >
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>{fetchError}</span>
+            </div>
+          )}
+
           <div className="flex items-center gap-4">
             <label className="text-sm font-medium">Year:</label>
             <select value={year} onChange={e => setYear(parseInt(e.target.value))} className="border rounded px-2 py-1">
-              {[...Array(5)].map((_, i) => {
-                const y = new Date().getFullYear() - 4 + i;
-                return (<option key={y} value={y}>{y}</option>);
-              })}
+              {Array.from(new Set([2024, 2025, 2026, 2027, year, new Date().getFullYear(), new Date().getFullYear() - 1, new Date().getFullYear() - 2])).sort((a, b) => b - a).map(y => (
+                <option key={y} value={y}>{y}</option>
+              ))}
             </select>
             <label className="text-sm font-medium">Month:</label>
             <select value={month} onChange={e => setMonth(parseInt(e.target.value))} className="border rounded px-2 py-1">
@@ -123,6 +136,8 @@ export default function MonthlyPayrollClient() {
               <tbody>
                 {loading ? (
                   <tr><td colSpan={6} className="p-4 text-center"><Loader2 className="animate-spin inline-block mr-2" />Loading…</td></tr>
+                ) : fetchError ? (
+                  <tr><td colSpan={6} className="p-4 text-center text-destructive">{fetchError}</td></tr>
                 ) : rows.length === 0 ? (
                   <tr><td colSpan={6} className="p-4 text-center text-muted-foreground">No payroll data for this period.</td></tr>
                 ) : (

@@ -3,8 +3,6 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { PayrollRow, PayslipStatus } from "@/types/payroll-ui";
-import { generatePayslipPdf } from "./payrollPdfService";
-import { sendPayslipEmail } from "./brevoEmailService";
 import { createJob, getJob, PayrollJob } from "./payrollJobStore";
 
 type YearMonthKey = `${number}-${number}`; // "2024-5"
@@ -455,6 +453,7 @@ export function startProcessing(
           // 1️⃣ Generate PDF if needed
           let pdfUrl = row.payslipUrl;
           if (!pdfUrl || row.pdfStatus !== "generated") {
+            const { generatePayslipPdf } = await import("./payrollPdfService");
             pdfUrl = await generatePayslipPdf(row.employeeId, year, month);
             row.payslipUrl = pdfUrl;
             row.pdfStatus = "generated";
@@ -506,6 +505,7 @@ export function startProcessing(
               );
             }
 
+            const { sendPayslipEmail } = await import("./brevoEmailService");
             const messageId = await sendPayslipEmail(
               row.employeeId,
               row.employeeName,
@@ -634,6 +634,7 @@ export async function retryPdf(
   }
 
   try {
+    const { generatePayslipPdf } = await import("./payrollPdfService");
     const pdfUrl = await generatePayslipPdf(targetRow.employeeId, year, month);
     targetRow.payslipUrl = pdfUrl;
     targetRow.pdfStatus = "generated";
@@ -722,6 +723,7 @@ export async function retryEmail(
   }
 
   try {
+    const { sendPayslipEmail } = await import("./brevoEmailService");
     const messageId = await sendPayslipEmail(
       targetRow.employeeId,
       targetRow.employeeName,

@@ -6,7 +6,6 @@
 
 import { BrevoClient } from "@getbrevo/brevo";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getPayrollRows } from "./payrollDataStore";
 
 // Load environment variables (e.g., via `dotenv` at app entry).
 // The sender email used by Brevo must be configured in the environment.

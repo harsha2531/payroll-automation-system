@@ -3,11 +3,49 @@
  * Service for generating a payslip PDF for a given employee and period.
  * Uses Playwright to render HTML to PDF and Supabase Storage to persist the file.
  */
-import { chromium } from "playwright";
+import type { Browser } from "playwright-core";
 import { createClient } from "@supabase/supabase-js";
 import { getPayrollRows } from "./payrollDataStore";
 import { PayrollRecord } from "@/services/payroll-parser";
 import { PayrollRow } from "@/types/payroll-ui";
+
+/**
+ * Launch Chromium browser instance.
+ * Automatically adapts between Vercel/AWS Lambda serverless environment (@sparticuz/chromium)
+ * and local development (playwright-core / system chrome).
+ */
+export async function launchChromiumBrowser(): Promise<Browser> {
+  const isServerless = Boolean(
+    process.env.VERCEL ||
+    process.env.AWS_LAMBDA_FUNCTION_NAME ||
+    process.env.AWS_REGION
+  );
+
+  const { chromium: playwrightChromium } = await import("playwright-core");
+
+  if (isServerless) {
+    const sparticuzChromium = (await import("@sparticuz/chromium")).default;
+    const executablePath = await sparticuzChromium.executablePath();
+    return await playwrightChromium.launch({
+      args: sparticuzChromium.args,
+      executablePath,
+      headless: sparticuzChromium.headless === "shell" ? true : Boolean(sparticuzChromium.headless),
+    });
+  }
+
+  // Local development / non-serverless environment (Windows, macOS, Linux)
+  try {
+    return await playwrightChromium.launch({ headless: true });
+  } catch (err) {
+    try {
+      return await playwrightChromium.launch({ channel: "chrome", headless: true });
+    } catch {
+      throw new Error(
+        `Failed to launch local Chromium for PDF generation: ${(err as Error).message}`
+      );
+    }
+  }
+}
 
 // Helper to obtain Supabase client with privileged service role key
 function getSupabaseClient() {
@@ -43,9 +81,33 @@ export function buildPayslipHtml(
     variablePay: variablePayRaw = 0,
   } = employee as any;
 
+  const rawEarnings =
+    (employee as any).earnings_breakdown ??
+    (employee as any).earningsBreakdown ??
+    {};
+  const rawDeductions =
+    (employee as any).deductions_breakdown ??
+    (employee as any).deductionsBreakdown ??
+    {};
+
   // Merge breakdown JSON fields if they exist
-  const earningsBreakdown = (employee as any).allowances || {};
-  const deductionsBreakdown = (employee as any).employeeDeductions || {};
+  const earningsBreakdown =
+    typeof (employee as any).allowances === "object" && (employee as any).allowances !== null
+      ? (employee as any).allowances
+      : (rawEarnings.allowances && typeof rawEarnings.allowances === "object")
+        ? rawEarnings.allowances
+        : (employee as any).allowancesBreakdown && typeof (employee as any).allowancesBreakdown === "object"
+          ? (employee as any).allowancesBreakdown
+          : {};
+
+  const deductionsBreakdown =
+    typeof (employee as any).employeeDeductions === "object" && (employee as any).employeeDeductions !== null
+      ? (employee as any).employeeDeductions
+      : (rawDeductions.employeeDeductions && typeof rawDeductions.employeeDeductions === "object")
+        ? rawDeductions.employeeDeductions
+        : (employee as any).deductionsBreakdown && typeof (employee as any).deductionsBreakdown === "object"
+          ? (employee as any).deductionsBreakdown
+          : {};
 
   // Allowances extraction
   const budgetaryAllowance = Number(earningsBreakdown["Budgetary Allowance"] ?? 0);
@@ -425,10 +487,14 @@ export async function generatePayslipPdf(
   employeeId: string,
   year: number,
   month: number,
+  providedRow?: PayrollRow
 ): Promise<string> {
-  // 1. Retrieve payroll row for the employee.
-  const rows = await getPayrollRows(year, month);
-  const employee = rows.find((r) => r.employeeId === employeeId);
+  // 1. Retrieve payroll row for the employee if not provided.
+  let employee = providedRow;
+  if (!employee) {
+    const rows = await getPayrollRows(year, month);
+    employee = rows.find((r) => r.employeeId === employeeId);
+  }
   if (!employee) {
     throw new Error(`Payroll row not found for employee ${employeeId}`);
   }
@@ -436,17 +502,21 @@ export async function generatePayslipPdf(
   // 2. Build HTML.
   const html = buildPayslipHtml(employee, year, month);
 
-  // 3. Launch Playwright headless Chromium.
-  const browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext();
-  const page = await context.newPage();
-  await page.setContent(html, { waitUntil: "networkidle" });
-  const pdfBuffer = await page.pdf({
-    format: "A4",
-    printBackground: true,
-    margin: { top: "10mm", bottom: "10mm", left: "15mm", right: "15mm" },
-  });
-  await browser.close();
+  // 3. Launch Playwright headless Chromium (serverless or local).
+  const browser = await launchChromiumBrowser();
+  let pdfBuffer: Buffer;
+  try {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    await page.setContent(html, { waitUntil: "networkidle" });
+    pdfBuffer = await page.pdf({
+      format: "A4",
+      printBackground: true,
+      margin: { top: "10mm", bottom: "10mm", left: "15mm", right: "15mm" },
+    });
+  } finally {
+    await browser.close();
+  }
 
   // 4. Upload to Supabase Storage (private bucket "payslips").
   const supabase = getSupabaseClient();

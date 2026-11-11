@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { chromium } from "playwright";
-import { buildPayslipHtml } from "@/lib/payrollPdfService";
+import { buildPayslipHtml, launchChromiumBrowser } from "@/lib/payrollPdfService";
 import { PayrollRecord } from "@/services/payroll-parser";
 
 describe("buildPayslipHtml", () => {
@@ -63,19 +62,22 @@ describe("buildPayslipHtml", () => {
 
   it("2. Playslip renders on exactly 1 A4 page with Playwright", async () => {
     const html = buildPayslipHtml(sampleEmployee, 2026, 11);
-    const browser = await chromium.launch({ headless: true });
-    const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: "networkidle" });
-    const pdfBuffer = await page.pdf({
-      format: "A4",
-      printBackground: true,
-      margin: { top: "10mm", bottom: "10mm", left: "15mm", right: "15mm" },
-    });
-    await browser.close();
+    const browser = await launchChromiumBrowser();
+    try {
+      const page = await browser.newPage();
+      await page.setContent(html, { waitUntil: "networkidle" });
+      const pdfBuffer = await page.pdf({
+        format: "A4",
+        printBackground: true,
+        margin: { top: "10mm", bottom: "10mm", left: "15mm", right: "15mm" },
+      });
 
-    const pdfText = pdfBuffer.toString("latin1");
-    const pageCount = (pdfText.match(/\/Type\s*\/Page\b/g) || []).length;
-    expect(pageCount).toBe(1);
+      const pdfText = pdfBuffer.toString("latin1");
+      const pageCount = (pdfText.match(/\/Type\s*\/Page\b/g) || []).length;
+      expect(pageCount).toBe(1);
+    } finally {
+      await browser.close();
+    }
   });
 });
 

@@ -1,7 +1,6 @@
 // src/app/api/payroll/payslip/route.ts
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
-import { generatePayslipPdf } from "@/lib/payrollPdfService";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -32,6 +31,7 @@ export async function GET(request: Request) {
       const year = parseInt(yearParam, 10);
       const month = parseInt(monthParam, 10);
       try {
+        const { generatePayslipPdf } = await import("@/lib/payrollPdfService");
         const freshUrl = await generatePayslipPdf(employeeId, year, month);
         if (freshUrl && freshUrl.startsWith("http")) {
           return NextResponse.redirect(freshUrl, 302);
