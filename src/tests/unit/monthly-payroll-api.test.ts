@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { GET } from "@/app/api/payroll/monthly/route";
 import { getPayrollRows } from "@/lib/payrollDataStore";
-import { launchChromiumBrowser, buildPayslipHtml } from "@/lib/payrollPdfService";
+import { launchChromiumBrowser, buildPayslipHtml, ensureBrowsersJsonAvailable } from "@/lib/payrollPdfService";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 // Mock Supabase Server admin/client factories
@@ -246,6 +246,15 @@ describe("Monthly Payroll API & Playwright Separation", () => {
   });
 
   describe("6. PDF Generation Service Configuration", () => {
+    it("ensureBrowsersJsonAvailable intercepts missing browsers.json and provides valid fallback", () => {
+      ensureBrowsersJsonAvailable();
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const loaded = require("/var/task/node_modules/playwright-core/browsers.json");
+      expect(loaded).toBeDefined();
+      expect(Array.isArray(loaded.browsers)).toBe(true);
+      expect(loaded.browsers.some((b: { name: string }) => b.name === "chromium")).toBe(true);
+    });
+
     it("uses @sparticuz/chromium when VERCEL environment variable is set", async () => {
       process.env.VERCEL = "1";
 
