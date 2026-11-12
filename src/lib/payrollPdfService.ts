@@ -64,6 +64,13 @@ const PLAYWRIGHT_BROWSERS_JSON = {
 
 let browsersJsonHookInstalled = false;
 
+// If running in Vercel serverless environment, preset AWS Lambda runtime variables
+// so @sparticuz/chromium detects the environment and auto-extracts AL2023 shared libraries (libnss3.so, etc.)
+if (process.env.VERCEL) {
+  process.env.AWS_EXECUTION_ENV = process.env.AWS_EXECUTION_ENV || "AWS_Lambda_nodejs20.x";
+  process.env.AWS_REGION = process.env.AWS_REGION || "us-east-1";
+}
+
 /**
  * Intercepts playwright-core's internal resolution of `browsers.json`.
  * In serverless environments (e.g. Vercel Lambda), non-JS assets are not automatically
@@ -135,12 +142,65 @@ export async function launchChromiumBrowser(): Promise<Browser> {
   const { chromium: playwrightChromium } = await import("playwright-core");
 
   if (isServerless) {
+    if (!process.env.AWS_EXECUTION_ENV) {
+      process.env.AWS_EXECUTION_ENV = "AWS_Lambda_nodejs20.x";
+    }
+    if (!process.env.AWS_REGION) {
+      process.env.AWS_REGION = "us-east-1";
+    }
+
     const sparticuzChromium = (await import("@sparticuz/chromium")).default;
     const executablePath = await sparticuzChromium.executablePath();
+
+    // Ensure the shared libraries directory containing libnss3.so is inflated
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const fs = require("fs");
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const path = require("path");
+
+      const hasNss =
+        fs.existsSync("/tmp/al2023/lib/libnss3.so") ||
+        fs.existsSync("/tmp/al2/lib/libnss3.so");
+
+      if (!hasNss) {
+        const lambdafs = (await import("@sparticuz/chromium/build/lambdafs")).default;
+        const binDir = path.join(path.dirname(require.resolve("@sparticuz/chromium")), "..", "bin");
+        const al2023Br = path.join(binDir, "al2023.tar.br");
+        const al2Br = path.join(binDir, "al2.tar.br");
+        if (fs.existsSync(al2023Br)) {
+          await lambdafs.inflate(al2023Br);
+        } else if (fs.existsSync(al2Br)) {
+          await lambdafs.inflate(al2Br);
+        }
+      }
+    } catch (inflateErr) {
+      console.warn("Shared library inflation check warning:", inflateErr);
+    }
+
+    const path = await import("path");
+    const ldLibraryPath = [
+      "/tmp/al2023/lib",
+      "/tmp/al2/lib",
+      path.dirname(executablePath),
+      process.env.LD_LIBRARY_PATH,
+      "/usr/lib64",
+      "/lib64",
+    ]
+      .filter(Boolean)
+      .join(":");
+
+    process.env.LD_LIBRARY_PATH = ldLibraryPath;
+
     return await playwrightChromium.launch({
       args: sparticuzChromium.args,
       executablePath,
       headless: sparticuzChromium.headless === "shell" ? true : Boolean(sparticuzChromium.headless),
+      chromiumSandbox: false,
+      env: {
+        ...(process.env as Record<string, string>),
+        LD_LIBRARY_PATH: ldLibraryPath,
+      },
     });
   }
 
