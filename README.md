@@ -1,277 +1,146 @@
 # Payroll Automation System
 
-A production-quality payroll automation application built with Next.js (App Router), TypeScript, Tailwind CSS, and Supabase.
+A full-stack payroll application that imports employee payroll data from Excel, stores it in Supabase, generates individual PDF payslips, and emails them to employees through Brevo.
 
----
+> **Status:** Deployed to Vercel for testing. Verify the production configuration before using real payroll data.
 
-## Phase 2.1: Supabase Setup & Integration
+## Features
 
-Supabase integration provides database access, authentication session persistence, and storage services using the current recommended Next.js SSR architecture and `@supabase/ssr`.
+- Supabase Auth login and role-based administrator access.
+- Import employee and payroll data from Excel workbooks.
+- Store and review payroll records by year and month.
+- Generate individual A4 PDF payslips using Playwright.
+- Store PDFs in private Supabase Storage.
+- Send employee-specific payslips using Brevo.
+- Track processing results and support retries where implemented.
 
-### Architecture Overview
+## Technology stack
 
-```text
-src/
-├── lib/
-│   ├── env/                      # Centralized environment variable validation
-│   │   ├── client.ts             # Browser-safe validated config (NEXT_PUBLIC_*)
-│   │   ├── server.ts             # Server-only validated config (server-only secrets)
-│   │   └── schema.ts             # Zod validation schemas and sanitization
-│   └── supabase/
-│       ├── client.ts             # Browser client (createBrowserClient)
-│       ├── server.ts             # Server client & admin client (createServerClient)
-│       ├── proxy.ts              # Session cookie handling & refresh
-│       └── connection-check.ts   # Server-side connection & config validation
-└── app/
-    └── api/
-        └── health/
-            └── supabase/         # Healthcheck route handler (/api/health/supabase)
-```
+| Area | Technology |
+|---|---|
+| Frontend | Next.js / React |
+| Backend | Next.js API routes and server-side code |
+| Language | TypeScript |
+| Authentication | Supabase Auth |
+| Database and storage | Supabase PostgreSQL / Storage |
+| Excel processing | Server-side workbook parsing |
+| PDF generation | Playwright |
+| Email | Brevo |
+| Testing | Vitest |
+| Hosting and source control | Vercel / GitHub |
 
-### Security & Isolation Guarantees
+## How it works
 
-1. **Browser vs Server Isolation**:
-   - `src/lib/supabase/client.ts` uses `createBrowserClient` with validated `NEXT_PUBLIC_*` variables. It never requests or has access to privileged server secrets.
-   - `src/lib/supabase/server.ts` is guarded with `import "server-only";` and creates request-scoped server clients with cookie-based session management.
-   - `createAdminClient()` (or `createServiceRoleClient()`) uses `SUPABASE_SERVICE_ROLE_KEY` to perform elevated backend operations. It is strictly server-only, never exposed to client code, and disables session persistence (`persistSession: false`).
+1. An administrator signs in and uploads an Excel workbook.
+2. The backend reads employee worksheets and maps payroll values.
+3. Employee and payroll records are saved in Supabase.
+4. The administrator selects a payroll year and month.
+5. The backend retrieves the saved payroll records.
+6. Individual payslip PDFs are generated and stored.
+7. Each employee receives their own payslip through Brevo.
+8. Processing results and failures are recorded.
 
-2. **Session Cookie Handling & Refresh**:
-   - Implemented in `src/lib/supabase/proxy.ts` according to the current `@supabase/ssr` recommendations.
-   - Session cookies are read via `request.cookies.getAll()` and written via `response.cookies.setAll()`.
-   - The user session is refreshed via `supabase.auth.getClaims()` during route requests to prevent out-of-sync authentication state.
+**Monthly processing uses payroll data already saved in Supabase.** The workbook only needs to be uploaded when importing or updating payroll data.
 
-3. **Connection & Configuration Health Check**:
-   - Server-side check available via `checkSupabaseConnection()` and `GET /api/health/supabase`.
-   - Checks both environment configuration validity and Supabase Auth service connectivity.
-   - Strictly sanitizes all output and error messages so no secret keys, JWT tokens, or credentials are leaked.
+## Important payroll rules
 
----
+- Use the imported Gross Salary and Net Salary values.
+- Preserve imported employee deductions and employer contributions.
+- Do not independently recalculate EPF or ETF.
+- Do not invent values when workbook fields are missing.
+- Display the actual variable-pay label, such as Bonus or Overtime.
+- Handle empty worksheets and changing Excel layouts safely.
 
-## Local Setup & Configuration
+## Getting started
 
-### 1. Prerequisites
-- Node.js 20+
-- A Supabase project (create one free at [database.new](https://database.new))
+### Prerequisites
 
-### 2. Configure Environment Variables
-Copy `.env.example` to `.env.local`:
+- Node.js and npm compatible with the project.
+- Git.
+- A Supabase project.
+- A Brevo account configured for transactional email.
 
-```bash
-cp .env.example .env.local
-```
-
-Fill in your project credentials in `.env.local`:
-
-```env
-# ------------------------------------------------------------------------------
-# Browser-Safe Variables
-# ------------------------------------------------------------------------------
-NEXT_PUBLIC_SUPABASE_URL=https://<your-project-ref>.supabase.co
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_<your-key>
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-
-# ------------------------------------------------------------------------------
-# Server-Only Variables (Keep confidential!)
-# ------------------------------------------------------------------------------
-SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
-BREVO_API_KEY=your-brevo-api-key
-BREVO_SENDER_EMAIL=noreply@yourdomain.com
-BREVO_SENDER_NAME="Payroll Automation System"
-NODE_ENV=development
-```
-
-> [!NOTE]
-> `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` supports Supabase's current **publishable** key format (`sb_publishable_...`) as well as legacy anon keys.
-> Never prefix `SUPABASE_SERVICE_ROLE_KEY` with `NEXT_PUBLIC_`.
-
-### 3. Install Dependencies & Run Development Server
+### Install
 
 ```bash
+git clone <YOUR_GITHUB_REPOSITORY_URL>
+cd <PROJECT_DIRECTORY>
 npm install
+```
+
+### Configure environment variables
+
+Create `.env.local` in the project root. Confirm the exact variable names in the application source code.
+
+```dotenv
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+
+# Brevo
+BREVO_API_KEY=
+BREVO_SENDER_EMAIL=
+BREVO_SENDER_NAME=
+
+# Application
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+```
+
+Never commit environment files or expose service-role keys and Brevo API keys in browser-side code.
+
+### Run locally
+
+```bash
 npm run dev
 ```
 
-Visit [http://localhost:3000](http://localhost:3000) to view the application shell.
+Open [http://localhost:3000](http://localhost:3000).
 
-### 4. Verify Supabase Connectivity
-
-- **Automated Health Check Route**: Visit [http://localhost:3000/api/health/supabase](http://localhost:3000/api/health/supabase) to view real-time server connectivity status.
-- **Run Test Suite**: Run `npm test` to verify unit and smoke tests.
-
----
-
-## Phase 2.2: Complete Authentication
-
-The application provides a comprehensive, production-ready authentication implementation built on Next.js App Router, Server Actions, and Supabase SSR (`@supabase/ssr`).
-
-### Features Implemented
-
-1. **Email & Password Authentication**:
-   - Login with email and password (`/auth/login`)
-   - Signup with full name, email, and password confirmation (`/auth/sign-up`)
-   - Logout via server action and client component with loading state
-2. **Password Recovery Flow**:
-   - Password reset request (`/auth/forgot-password`) with **anti-enumeration protection** (always reports generic success without leaking email existence)
-   - Password reset callback and OTP / PKCE exchange (`/auth/confirm`)
-   - Password update form (`/auth/update-password`)
-3. **Route Protection & Redirections**:
-   - Server-side authentication check on protected routes (`/protected`)
-   - Edge proxy / middleware automatically redirects unauthenticated users to `/auth/login`
-   - Authenticated users attempting to visit `/auth/login` or `/auth/sign-up` are automatically redirected to `/protected`
-4. **User Profile Mapping**:
-   - Pure profile extraction utility (`mapUserProfile`) extracting `displayName` (full_name, name, or first/last name with email fallback), system role, user ID, and timestamps
-   - Displayed in the authenticated `/protected` dashboard
-5. **Input Validation & Security**:
-   - Strict dual-layer validation (Zod schemas on server actions + client-side form feedback)
-   - Supabase Auth error mapping (`mapAuthError`) providing user-friendly error messages without revealing internal system details
-
-### Supabase Dashboard Configuration
-
-To enable email confirmations and password recovery flows in your Supabase project, configure the following settings in your [Supabase Dashboard](https://supabase.com/dashboard):
-
-#### 1. URL Configuration (Authentication > URL Configuration)
-- **Site URL**:
-  - Development: `http://localhost:3000`
-  - Production: `https://your-domain.com`
-- **Redirect URLs** (Add all of the following):
-  - `http://localhost:3000/auth/confirm`
-  - `http://localhost:3000/auth/confirm?next=/protected`
-  - `http://localhost:3000/auth/confirm?type=recovery&next=/auth/update-password`
-  - `http://localhost:3000/auth/update-password`
-  - `http://localhost:3000/protected`
-  - *(For production, replace `http://localhost:3000` with your production domain)*
-
-#### 2. Email Templates (Authentication > Email Templates)
-Ensure your Supabase project email templates use the correct confirmation link:
-- **Confirm signup**:
-  - Redirect link: `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email&next=/protected`
-- **Reset Password**:
-  - Redirect link: `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next=/auth/update-password`
-
----
-
-## Phase 2.3: Authorization, Security & Quality Gate
-
-Phase 2.3 hardens application security by establishing a strict Role-Based Access Control (RBAC) model, database-backed user profiles, and Row Level Security (RLS).
-
-### 1. Minimal Role Model
-
-The application defines a minimal, explicit two-role authorization system:
-- **`admin`**: System administrator with complete operational and administrative privileges.
-- **`employee`**: Standard default user role assigned automatically to newly registered accounts.
-
-### 2. Trusted Server-Controlled Profiles
-
-- **Table**: `public.profiles` (`id`, `email`, `full_name`, `role`, `avatar_url`, `created_at`, `updated_at`).
-- **Location**: `supabase/migrations/20261013000000_create_profiles_table.sql`.
-- **Automatic Provisioning Trigger**: `handle_new_user()` executes on `auth.users` insert with `SECURITY DEFINER`, guaranteeing that new signups *always* default to role `'employee'`. User-supplied signup metadata cannot grant admin status.
-- **Anti-Self-Promotion Trigger**: `prevent_role_self_promotion()` blocks any client from modifying the `role` column via `UPDATE`. Only `service_role` or authorized administrators can update roles.
-- **Repository Isolation**: `ProfileRepository.updateProfile()` safely omits the `role` column, preventing client profile update payloads from escalating privileges.
-
-### 3. Row Level Security (RLS) Policies
-
-Row Level Security is enabled on `public.profiles` with least-privilege policies:
-- `profiles_select_own`: Users can view their own profile (`auth.uid() = id`).
-- `profiles_select_admin`: Administrators can query all profiles.
-- `profiles_update_own`: Users can update non-privileged fields on their own profile (`auth.uid() = id`).
-- `profiles_update_admin`: Administrators can update profiles.
-- `profiles_service_role_all`: Server service-role possesses full unconstrained access.
-
-### 4. Server-Enforced Admin Authorization
-
-- **Server Guard (`AuthService.requireAdmin`)**: Enforces authentication and verifies `role === 'admin'` against the trusted database profile before rendering `/protected`.
-- **403 Access Denied (`/unauthorized`)**: Authenticated non-admin users attempting to access the dashboard or admin resources are redirected to `/unauthorized` on the server.
-- **Server Actions Guard (`assignUserRoleAction`)**: Verifies caller is an active administrator before permitting role updates.
-
-### 5. Secure Initial Administrator Provisioning
-
-To prevent unauthorized privilege escalation, there is **no public API or self-assignment endpoint** for the `admin` role. Initial administrator accounts must be provisioned through secure backend mechanisms:
-
-#### Option A: Server-Side CLI Script (Recommended)
-Infrastructure engineers can provision the initial admin directly on the server runtime:
+Use the scripts defined in `package.json` for testing and production builds. Common commands are:
 
 ```bash
-# Provision by email
-npx tsx scripts/provision-admin.ts admin@yourcompany.com
+npm run test
+npm run build
+npm run start
 ```
 
-This script:
-1. Validates `SUPABASE_SERVICE_ROLE_KEY` is present.
-2. Locates the registered user in Supabase Auth.
-3. Updates `public.profiles.role` to `'admin'`.
-4. Synchronizes `auth.users.raw_app_meta_data.role` to `'admin'`.
+## Database migrations
 
-#### Option B: Supabase Dashboard SQL Editor
-Run the following SQL snippet directly in your Supabase SQL Editor:
+Database schema changes should be tracked as SQL migrations. The project has previously used migration files for profiles and payroll; check the repository and remote migration history for the current state.
 
-```sql
-UPDATE public.profiles
-SET role = 'admin', updated_at = now()
-WHERE email = 'admin@yourcompany.com';
+```bash
+npx supabase login
+npx supabase link --project-ref <YOUR_SUPABASE_PROJECT_REF>
+npx supabase migration list
+npx supabase db push
 ```
 
----
+Create a new migration for changes to an already-applied schema. Review SQL before applying it to production.
 
-## Phase 3.1: Database Schema & Migrations
+## Deployment
 
-Phase 3.1 establishes the core PostgreSQL schema and migrations for automated payroll execution, payslip generation, and transactional email distribution.
+The application uses GitHub for source control, Vercel for hosting, and Supabase for data services.
 
-### Schema Architecture & Entities
+1. Push approved changes to the configured GitHub deployment branch.
+2. Configure the required environment variables in Vercel.
+3. Deploy the application.
+4. Review build and runtime logs.
+5. Test login, Excel import, monthly payroll retrieval, PDF generation, and email delivery.
 
-```text
-supabase/migrations/
-├── 20261013000000_create_profiles_table.sql   # User Profiles & Authorization (Phase 2.3)
-└── 20261013010000_create_payroll_schema.sql    # Core Payroll Domain Schema (Phase 3.1)
-```
+## Security
 
-1. **`public.employees`**:
-   - Master employee registry with unique `employee_number`, full name, email, designation, department, and employment lifecycle status (`active`, `inactive`, `terminated`, `on_leave`).
-   - Minimizes collected personal data while providing essential payroll contact fields.
+Payroll records and payslips are confidential.
 
-2. **`public.payroll_runs`**:
-   - Periodic execution runs with `year`, `month`, and `sequence_number`.
-   - **Correction & Rerun Strategy**: Unique constraint `uq_payroll_runs_period_sequence (year, month, sequence_number)` permits corrections, bonuses, or supplementary payroll runs for a period without overwriting history.
-   - Lifecycle status enforced: `draft`, `processing`, `calculated`, `approved`, `completed`, `failed`, `cancelled`.
-   - Audit tracking with `created_by`, `approved_by`, and summary aggregates (`total_gross_pay`, `total_net_pay`).
+- Enforce administrator authorization on the server.
+- Apply appropriate Supabase Row Level Security policies.
+- Keep privileged credentials server-side.
+- Use a private Storage bucket and secure access to payslips.
+- Ensure each employee receives only their own payslip.
+- Validate uploaded workbooks and sanitize filenames.
+- Avoid logging credentials or sensitive payroll information.
+- Prevent duplicate processing and email sends.
 
-3. **`public.payroll_items`**:
-   - Itemized line items per employee per run.
-   - **Historical Snapshot**: Freezes `employee_number_snapshot`, `employee_name_snapshot`, `employee_email_snapshot`, and designations at the moment of run calculation, ensuring future employee profile edits do not alter past payslips.
-   - **Monetary Precision**: All currency amounts stored using exact PostgreSQL `numeric(12, 2)` (strictly non-floating point) with non-negative constraints.
-   - **Variable Pay**: Native support for custom additions via `variable_pay_label` (e.g., "Over Time", "Bonus", "Commission") and `variable_pay_amount`.
-   - **Source vs Calculated Tracking**: `earnings_breakdown`, `deductions_breakdown`, and `calculation_metadata` record raw Excel inputs separately from system calculation rules.
-   - **Duplicate Prevention**: Unique constraint `uq_payroll_items_run_employee (payroll_run_id, employee_id)` prevents accidental multiple entries for the same employee within a single run.
-   - **Audit Preservation**: Enforces `ON DELETE RESTRICT` on foreign keys to `payroll_runs` and `employees`, preventing accidental deletion of historical payroll records.
+## Production checklist
 
-4. **`public.payslip_documents`**:
-   - PDF metadata repository linked 1-to-1 with `payroll_items`.
-   - **Private Storage**: Stores `storage_bucket` (`payslips`) and private `storage_path` (e.g., `runs/<run_id>/<employee_id>.pdf`). Does **not** store permanent public URLs. Signed URLs are generated on demand.
-
-5. **`public.email_deliveries`**:
-   - Transactional email dispatch tracking with recipient, provider message ID, retry attempts, and safe error details.
-   - **Idempotency**: Unique constraint on `idempotency_key` ensures duplicate-send protection across worker restarts or network retries.
-
-6. **`public.processing_jobs`**:
-   - Database-backed task queue for asynchronous payroll calculation, PDF rendering, and bulk email distribution.
-   - **Atomic Worker Claiming**: Supports lease locks via `claimed_by`, `claimed_at`, and `locked_until` (enabling automatic recovery of abandoned/stale jobs if workers crash).
-   - **High-Performance Partial Indexes**: Optimized index on `(status, available_at) WHERE status in ('queued', 'failed')`.
-
-### Row Level Security (RLS) Model
-
-- **Administrative Control**: Administrators (`role = 'admin'` in `profiles`) have full access across all payroll tables.
-- **Employee Self-Service**: Authenticated employees can only SELECT their own employee record, payroll items, and payslip documents matched against their authenticated profile email.
-- **Queue Protection**: `processing_jobs` is strictly restricted to administrators and backend workers.
-- **Service Role**: Backend processes using `service_role` have full unconstrained access.
-
----
-
-## Testing & Quality Assurance
-
-| Command | Purpose |
-|---|---|
-| `npm test` | Runs all unit and smoke tests (deterministic, mock-driven, CI-ready). |
-| `npm run test:watch` | Starts Vitest in interactive watch mode for local development. |
-| `npm run test:coverage` | Generates V8 code coverage report in `./coverage`. |
-| `npm run lint` | Runs ESLint across the codebase. |
-| `npx tsc --noEmit` | Validates TypeScript strict type checking. |
-| `npm run build` | Builds optimized production Next.js application. |
+Before using live payroll data, verify authorization, database policies, payslip privacy, email recipient isolation, backups, and processing reliability. Test the complete workflow with non-sensitive data first.
