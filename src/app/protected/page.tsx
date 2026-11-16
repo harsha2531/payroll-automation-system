@@ -77,8 +77,6 @@ export default async function ProtectedDashboardPage() {
   const { data: latestRun } = await supabase
     .from("payroll_runs")
     .select("*")
-    .order("year", { ascending: false })
-    .order("month", { ascending: false })
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
